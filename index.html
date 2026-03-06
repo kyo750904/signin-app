@@ -402,10 +402,26 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.07 (115.3.6)</p>
+        <p>版本：v0.08 (115.3.6) - 密碼保護</p>
     </footer>
 
     <script>
+        // ====== 密碼保護 ======
+        const APP_PASSWORD = '1234'; // 帥帥可修改密碼
+        function checkPassword() {
+            if(localStorage.getItem('s_auth') === 'true') return true;
+            let pw = prompt('請輸入密碼：');
+            if(pw === APP_PASSWORD) {
+                localStorage.setItem('s_auth','true');
+                return true;
+            }
+            if(pw) alert('密碼錯誤');
+            return false;
+        }
+        if(!checkPassword()) {
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;"><h1>🔒 需要密碼</h1><p>請重新整理頁面輸入密碼</p></div>';
+        }
+        
         // Data
         let students = JSON.parse(localStorage.getItem('s_students') || '[]');
         students.forEach(s => { if (s.checked === undefined) s.checked = true; });
