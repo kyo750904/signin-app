@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>樂齡學習中心 AI 簽到系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+            overscroll-behavior: none;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        }
+        .gradient-text {
+            background: linear-gradient(135deg, #06C755 0%, #05B54D 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #06C755 0%, #05B54D 100%);
+        }
+        .signature-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+        .signature-modal.active { display: flex; align-items: center; justify-content: center; }
+        body.signing { overflow: hidden !important; position: fixed !important; }
+        .signature-canvas {
+            border: 3px dashed #06C755;
+            border-radius: 16px;
+            background: white;
+            touch-action: none;
+        }
+        .student-card { animation: slideIn 0.3s ease; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .tab-active {
+            background: linear-gradient(135deg, #06C755 0%, #05B54D 100%);
+            color: white;
+        }
+        .tab-btn {
+            background: linear-gradient(135deg, #06C755 0%, #05B54D 100%);
+            color: white;
+        }
+        .voice-wave { display: flex; align-items: center; gap: 3px; height: 30px; }
+        .voice-wave span {
+            width: 4px; background: #06C755; border-radius: 2px;
+            animation: wave 1s ease-in-out infinite;
+        }
+        .voice-wave span:nth-child(1) { animation-delay: 0s; height: 20%; }
+        .voice-wave span:nth-child(2) { animation-delay: 0.1s; height: 40%; }
+        .voice-wave span:nth-child(3) { animation-delay: 0.2s; height: 60%; }
+        .voice-wave span:nth-child(4) { animation-delay: 0.3s; height: 80%; }
+        .voice-wave span:nth-child(5) { animation-delay: 0.4s; height: 100%; }
+        @keyframes wave { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(1); } }
+        
+        /* App 風格 */
+        body {
+            background: linear-gradient(180deg, #06C755 0%, #f0fdf4 30%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+        }
+        .tab-btn {
+            border-radius: 25px;
+            padding: 12px 24px;
+            transition: all 0.3s ease;
+        }
+        .tab-btn:hover {
+            transform: scale(1.05);
+        }
+        input, select, button {
+            border-radius: 15px;
+        }
+        .btn-primary {
+            box-shadow: 0 4px 15px rgba(6, 199, 85, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="sticky top-0 z-50 px-0 py-2" style="background: linear-gradient(135deg, #06C755, #05B54D);">
+        <div class="max-w-full mx-auto">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold text-white">AI 智慧簽到系統</h1>
+                        <p class="text-base text-white-80">樂齡學習中心</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="adminBtnArea"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainContent" class="max-w-full mx-auto px-2 pb-4 text-lg">
+        <!-- Tab Navigation -->
+        <div class="flex gap-2 mb-3 overflow-x-auto pb-2">
+            <button onclick="switchTab('students')" id="tab-students" class="tab-btn px-3 py-3 rounded-xl font-bold text-xl whitespace-nowrap">👥 學員</button>
+            <button onclick="switchTab('volunteers')" id="tab-volunteers" class="tab-btn px-3 py-3 rounded-xl font-bold text-xl whitespace-nowrap">🌟 志工</button>
+            <button onclick="switchTab('course')" id="tab-course" class="tab-btn px-3 py-3 rounded-xl font-bold text-xl whitespace-nowrap">📚 課程</button>
+            <button onclick="switchTab('signin')" id="tab-signin" class="tab-btn px-3 py-3 rounded-xl font-bold text-xl whitespace-nowrap">✍️ 簽到</button>
+            <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn px-3 py-3 rounded-xl font-bold text-xl whitespace-nowrap">📊 統計</button>
+            <button onclick="switchTab('export')" id="tab-export" class="tab-btn px-3 py-3 rounded-xl font-bold text-xl whitespace-nowrap">📥 匯出</button>
+        </div>
+
+        <!-- Sign In Tab -->
+        <div id="signin-content">
+            <!-- 課程資訊顯示 -->
+            <div id="courseDisplay"></div>
+            
+            <!-- 課程資訊（從課程分頁設定） -->
+            <div id="signinCourseInfo" class="glass rounded-xl p-2 mb-2"></div>
+            
+            <!-- 簽到表 -->
+            <div class="glass rounded-xl p-2 mb-2">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                        <label class="text-sm text-gray-500">📅 日期</label>
+                        <input type="date" id="courseDate" class="w-full mt-1 px-2 py-1 border text-base rounded-lg focus:ring-2 focus:ring-green-600 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-500">🕐 時間</label>
+                        <input type="time" id="courseTime" class="w-full mt-1 px-2 py-1 border text-base rounded-lg focus:ring-2 focus:ring-green-600 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div class="glass rounded-xl p-2 mb-2">
+                <div class="flex gap-2 flex-wrap">
+                    <input type="text" id="searchQuery" placeholder="🔍 搜尋..." onkeyup="if(event.key==='Enter'||this.value.length>=1)renderStudentList()" class="flex-1 min-w-[150px] px-2 py-2 border text-lg rounded-lg focus:ring-2 focus:ring-green-600 outline-none">
+                    <button onclick="renderStudentList()" class="px-3 py-2 bg-green-500 text-white rounded-lg font-bold whitespace-nowrap">搜尋</button>
+                </div>
+            </div>
+
+            <!-- Student List -->
+            <div class="glass rounded-xl p-3">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-bold text-2xl">📋 學員簽到名單</h3>
+                    <span class="text-xl text-gray-500" id="studentTotalCount">共 0 人</span>
+                </div>
+                <div id="studentList" class="space-y-2 max-h-[50vh] overflow-y-auto"></div>
+            </div>
+
+            <!-- Stats -->
+            <div class="flex justify-center gap-6 mt-6">
+                <div class="glass rounded-2xl px-3 py-3 text-center">
+                    <div class="text-2xl font-bold text-green-600" id="maleCount">0</div>
+                    <div class="text-xl text-gray-500">👨 男</div>
+                </div>
+                <div class="glass rounded-2xl px-3 py-3 text-center">
+                    <div class="text-2xl font-bold text-pink-600" id="femaleCount">0</div>
+                    <div class="text-xl text-gray-500">👩 女</div>
+                </div>
+                <div class="glass rounded-2xl px-3 py-3 text-center">
+                    <div class="text-4xl font-bold gradient-text" id="totalCount">0</div>
+                    <div class="text-xl text-gray-500">📊 總計</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Students Tab -->
+        <div id="students-content" class="hidden">
+            <div class="glass rounded-xl p-3 mb-2">
+                <h3 class="font-bold text-xl mb-2">➕ 新增學員</h3>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="newStudentName" placeholder="學員姓名" class="flex-1 px-3 py-3 border rounded-xl focus:ring-2 focus:ring-green-600 outline-none">
+                    <select id="newStudentGender" class="px-3 py-3 border rounded-xl focus:ring-2 focus:ring-green-600 outline-none">
+                        <option value="男">👨 男</option>
+                        <option value="女">👩 女</option>
+                    </select>
+                    <button onclick="addStudent()" class="btn-primary px-3 py-3 text-white rounded-xl font-medium">➕ 新增</button>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="loadDemoData(10)" class="px-4 py-3 bg-green-100 text-green-700 rounded-lg font-medium">📦 10人</button>
+                    <button onclick="loadDemoData(20)" class="px-4 py-3 bg-green-100 text-green-700 rounded-lg font-medium">📦 20人</button>
+                    <button onclick="loadDemoData(30)" class="px-4 py-3 bg-green-100 text-green-700 rounded-lg font-medium">📦 30人</button>
+                    <button onclick="clearAllStudents()" class="px-3 py-3 bg-red-100 text-red-700 rounded-lg font-medium">🗑️ 清除全部</button>
+                </div>
+            </div>
+            
+            <!-- 課程管理 -->
+            <div class="glass rounded-xl p-3 mb-2">
+                <h3 class="font-bold text-xl mb-2">📚 課程管理</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xl text-gray-600">數位課程名稱</label>
+                        <input type="text" id="courseTitle" placeholder="例如：智慧手機應用課程" class="w-full mt-1 px-4 py-3 border text-xl rounded-lg">
+                    </div>
+                    <div>
+                        <label class="text-xl text-gray-600">教學目標</label>
+                        <textarea id="courseGoal" placeholder="例如：教導長輩使用 LINE、拍照等功能" class="w-full mt-1 px-4 py-3 border text-xl rounded-lg" rows="2"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-xl text-gray-600">課程時數</label>
+                        <input type="text" id="courseHours" placeholder="例如：2小時" class="w-full mt-1 px-4 py-3 border text-xl rounded-lg">
+                    </div>
+                    <button onclick="saveCourse()" class="w-full py-4 btn-primary text-white rounded-xl font-bold">💾 儲存課程資訊</button>
+                </div>
+            </div>
+            
+            <div class="glass rounded-xl p-3">
+                <h3 class="font-bold text-xl mb-2">👥 學員列表</h3>
+                <div id="manageList" class="space-y-2 max-h-[60vh] overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- Volunteers Tab -->
+        <div id="volunteers-content" class="hidden">
+            <div class="glass rounded-xl p-3 mb-2">
+                <h3 class="font-bold text-xl mb-2">➕ 新增志工</h3>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="newVolunteerName" placeholder="志工姓名" class="flex-1 px-3 py-3 border rounded-xl focus:ring-2 focus:ring-green-600 outline-none">
+                    <button onclick="addVolunteer()" class="btn-primary px-3 py-3 text-white rounded-xl font-medium">➕ 新增</button>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="clearAllVolunteers()" class="px-3 py-3 bg-red-100 text-red-700 rounded-lg font-medium">🗑️ 清除全部</button>
+                </div>
+            </div>
+            
+            <div class="glass rounded-xl p-3">
+                <h3 class="font-bold text-xl mb-2">🌟 志工列表（勾選列入簽到）</h3>
+                <div id="volunteerList"></div>
+            </div>
+        </div>
+
+        <!-- Course Tab (Admin Only) -->
+        <div id="course-content" class="hidden">
+            <div class="glass rounded-xl p-3 mb-2">
+                <h3 class="font-bold text-xl mb-2">🏢 承辦單位管理</h3>
+                <div class="space-y-2">
+                    <div>
+                        <label class="text-lg text-gray-600">選擇承辦單位</label>
+                        <select id="organizerSelect" onchange="loadCourseInfo()" class="w-full mt-1 px-3 py-3 border text-lg rounded-xl">
+                            <option value="">-- 請選擇 --</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-lg text-gray-600">或新增承辦單位</label>
+                        <input type="text" id="newOrganizer" placeholder="輸入新單位名稱" class="w-full mt-1 px-3 py-3 border text-lg rounded-xl">
+                        <button onclick="addOrganizer()" class="mt-2 px-4 py-2 bg-green-500 text-white rounded-xl">➕ 新增單位</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="glass rounded-xl p-3 mb-2">
+                <h3 class="font-bold text-xl mb-2">📚 課程管理</h3>
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-lg text-gray-600">數位課程名稱</label>
+                        <input type="text" id="courseTitle" placeholder="例如：智慧手機應用課程" class="w-full mt-1 px-3 py-3 border text-lg rounded-xl">
+                    </div>
+                    <div>
+                        <label class="text-lg text-gray-600">教學目標</label>
+                        <textarea id="courseGoal" placeholder="例如：教導長輩使用 LINE、拍照等功能" class="w-full mt-1 px-3 py-3 border text-lg rounded-xl" rows="2"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-lg text-gray-600">課程時數</label>
+                        <input type="text" id="courseHours" placeholder="例如：2小時" class="w-full mt-1 px-3 py-3 border text-lg rounded-xl">
+                    </div>
+                    <button onclick="saveCourse()" class="w-full py-4 btn-primary text-white rounded-xl font-bold">💾 儲存課程資訊</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="stats-content" class="hidden">
+            <div class="glass rounded-xl p-3 mb-2">
+                <h3 class="font-bold text-xl mb-2">📊 今日出席統計</h3>
+                <div class="flex justify-around items-center mb-3">
+                    <div class="text-center">
+                        <div class="text-5xl font-bold text-green-600" id="statMale">0</div>
+                        <div class="text-gray-500 mt-2">👨 男性</div>
+                    </div>
+                    <div class="text-3xl text-gray-300">:</div>
+                    <div class="text-center">
+                        <div class="text-5xl font-bold text-pink-600" id="statFemale">0</div>
+                        <div class="text-gray-500 mt-2">👩 女性</div>
+                    </div>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                    <div id="attendanceBar" class="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="text-center mt-4">
+                    <span class="text-4xl font-bold gradient-text" id="statTotal">0</span>
+                    <span class="text-gray-500"> / <span id="statTotalAll">0</span> 人出席</span>
+                </div>
+            </div>
+            
+            <div class="glass rounded-xl p-3">
+                <h3 class="font-bold text-xl mb-2">🎯 出席率</h3>
+                <div class="relative w-40 h-40 mx-auto">
+                    <svg class="w-full h-full transform -rotate-90">
+                        <circle cx="80" cy="80" r="70" fill="none" stroke="#e5e7eb" stroke-width="12"/>
+                        <circle id="progressCircle" cx="80" cy="80" r="70" fill="none" stroke="url(#gradient)" stroke-width="12" stroke-linecap="round" stroke-dasharray="440" stroke-dashoffset="440"/>
+                        <defs>
+                            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#06C755"/>
+                                <stop offset="100%" stop-color="#05B54D"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span id="attendancePercent" class="text-4xl font-bold gradient-text">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Tab -->
+        <div id="export-content" class="hidden">
+            <div class="glass rounded-xl p-3 mb-2">
+                <h3 class="font-bold text-xl mb-2">📥 匯出選項</h3>
+                <div class="space-y-3">
+                    <button onclick="exportExcel()" class="w-full py-4 btn-primary text-white rounded-xl font-medium flex items-center justify-center gap-2">
+                        📊 匯出 Excel 簽到表
+                    </button>
+                    <button onclick="previewWithSignatures()" class="w-full py-4 bg-green-500 text-white rounded-xl font-medium flex items-center justify-center gap-2">
+                        👁️ 預覽含簽名
+                    </button>
+                </div>
+            </div>
+            
+            <div class="glass rounded-xl p-3">
+                <h3 class="font-bold text-xl mb-2">📋 預覽</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-2xl">
+                        <thead>
+                            <tr class="bg-green-600 text-white">
+                                <th class="p-2 rounded-l-lg">#</th>
+                                <th class="p-2">姓名</th>
+                                <th class="p-2">性別</th>
+                                <th class="p-2">簽名</th>
+                                <th class="p-2 rounded-r-lg">時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signature Modal -->
+    <div id="signatureModal" class="signature-modal">
+        <div class="glass rounded-xl p-3 w-[95%] max-w-lg">
+            <h3 id="signModalTitle" class="text-xl font-bold mb-2 text-center gradient-text">學員簽名</h3>
+            <canvas id="signatureCanvas" class="signature-canvas w-full h-64"></canvas>
+            <div class="flex gap-3 mt-4 justify-center flex-wrap">
+                <button onclick="clearSignature()" class="px-3 py-3 bg-red-500 text-white rounded-xl font-medium">🗑️ 清除</button>
+                <button onclick="closeSignatureModal()" class="px-3 py-3 bg-gray-500 text-white rounded-xl font-medium">✖ 取消</button>
+                <button onclick="saveSignature()" class="px-3 py-3 btn-primary text-white rounded-xl font-medium">✅ 確認</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== Data Management ==========
+        let students = JSON.parse(localStorage.getItem('ai_signin_students') || '[]');
+        // 確保舊資料有 checked 屬性
+        students.forEach(s => { if (s.checked === undefined) s.checked = true; });
+        let volunteers = JSON.parse(localStorage.getItem('ai_signin_volunteers') || '[]');
+        volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
+        let signatures = JSON.parse(localStorage.getItem('ai_signin_signatures') || '{}');
+        
+        // 預設承辦單位列表
+        const defaultOrganizers = [
+            '花蓮市樂齡學習中心',
+            '吉安鄉樂齡學習中心',
+            '壽豐鄉樂齡學習中心',
+            '鳳林鎮樂齡學習中心',
+            '玉里鎮樂齡學習中心',
+            '其他'
+        ];
+        
+        // ========== Initialize ==========
+        document.getElementById('courseDate').valueAsDate = new Date();
+        document.getElementById('courseTime').value = new Date().toTimeString().substring(0, 5);
+        
+        // Load saved course info
+        const savedCourse = JSON.parse(localStorage.getItem('ai_signin_course') || '{}');
+        if (savedCourse.organizer) document.getElementById('organizer').value = savedCourse.organizer;
+        if (savedCourse.courseName) document.getElementById('courseName').value = savedCourse.courseName;
+        if (savedCourse.date) document.getElementById('courseDate').value = savedCourse.date;
+        if (savedCourse.time) document.getElementById('courseTime').value = savedCourse.time;
+        
+        renderStudentList();
+        renderManageList();
+        renderVolunteerList();
+        updateStats();
+        renderAdminButton();
+        loadCourseInfo();
+
+        // ========== Tab Navigation ==========
+        function switchTab(tabId) {
+            // 檢查權限 - 統計、匯出、教學管理需要管理員
+            if ((tabId === 'stats' || tabId === 'export' || tabId === 'course') && !isAdmin()) {
+                alert('此功能需要管理員登入');
+                return;
+            }
+            
+            ['students', 'volunteers', 'course', 'signin', 'stats', 'export'].forEach(t => {
+                const el = document.getElementById(t + '-content');
+                const btn = document.getElementById('tab-' + t);
+                if (el) el.classList.add('hidden');
+                if (btn) btn.classList.remove('tab-active');
+            });
+            const targetEl = document.getElementById(tabId + '-content');
+            const targetBtn = document.getElementById('tab-' + tabId);
+            if (targetEl) targetEl.classList.remove('hidden');
+            if (targetBtn) targetBtn.classList.add('tab-active');
+            
+            if (tabId === 'stats' || tabId === 'export') {
+                updateStats();
+                renderExportPreview();
+            }
+        }
+
+        // ========== Voice Input (AI Feature) ==========
+        function startVoiceInput() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('請使用 Chrome 瀏覽器以支援語音輸入');
+                return;
+            }
+            
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'zh-TW';
+            recognition.interimResults = false;
+            
+            document.getElementById('voiceIndicator').classList.remove('hidden');
+            document.getElementById('voiceBtn').classList.add('pulse-animation');
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('searchQuery').value = transcript;
+                renderStudentList();
+            };
+            
+            recognition.onerror = () => {
+                document.getElementById('voiceIndicator').classList.add('hidden');
+                document.getElementById('voiceBtn').classList.remove('pulse-animation');
+            };
+            
+            recognition.onend = () => {
+                document.getElementById('voiceIndicator').classList.add('hidden');
+                document.getElementById('voiceBtn').classList.remove('pulse-animation');
+            };
+            
+            recognition.start();
+        }
+
+        // ========== Admin Login ==========
+        const ADMIN_PASSWORD = 'gm1234'; // 管理員密碼
+        
+        function isAdmin() {
+            return localStorage.getItem('signin_admin') === 'true';
+        }
+        
+        function showLogin() {
+            const pw = prompt('請輸入管理員密碼：');
+            if (pw === ADMIN_PASSWORD) {
+                localStorage.setItem('signin_admin', 'true');
+                alert('登入成功！');
+                location.reload();
+            } else if (pw !== null) {
+                alert('密碼錯誤！');
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('signin_admin');
+            alert('已登出');
+            location.reload();
+        }
+        
+        function renderAdminButton() {
+            const btnArea = document.getElementById('adminBtnArea');
+            if (isAdmin()) {
+                btnArea.innerHTML = '<button onclick="logout()" class="px-3 py-1 bg-red-500 text-white rounded text-sm">登出</button>';
+            } else {
+                btnArea.innerHTML = '<button onclick="showLogin()" class="px-3 py-1 bg-yellow-500 text-white rounded text-sm">管理登入</button>';
+            }
+        }
+
+        // ========== Student Management ==========
+        function addStudent() {
+            const name = document.getElementById('newStudentName').value.trim();
+            const gender = document.getElementById('newStudentGender').value;
+            
+            if (!name) { alert('請輸入姓名'); return; }
+            
+            const student = {
+                id: Date.now(),
+                name,
+                gender,
+                checked: true,
+                created: new Date().toISOString()
+            };
+            
+            students.push(student);
+            saveData();
+            renderManageList();
+        renderVolunteerList();
+            renderStudentList();
+            document.getElementById('newStudentName').value = '';
+        }
+        
+        function toggleStudent(id) {
+            const s = students.find(x => x.id === id);
+            if (s) { 
+                s.checked = !s.checked; 
+                saveData(); 
+                renderManageList();
+        renderVolunteerList(); 
+                renderStudentList(); 
+            }
+        }
+
+        function deleteStudent(id) {
+            if (confirm('確定要刪除這位學員嗎？')) {
+                students = students.filter(s => s.id !== id);
+                delete signatures[id];
+                saveData();
+                renderManageList();
+        renderVolunteerList();
+                renderStudentList();
+            }
+        }
+
+        function clearAllStudents() {
+            if (confirm('確定要清除所有學員嗎？此操作無法復原！')) {
+                students = [];
+                signatures = {};
+                saveData();
+                renderManageList();
+        renderVolunteerList();
+                renderStudentList();
+            }
+        }
+
+        function loadDemoData(count) {
+            const names10 = [
+                { name: '王美華', gender: '女' },
+                { name: '陳素雲', gender: '女' },
+                { name: '林水木', gender: '男' },
+                { name: '黃金土', gender: '男' },
+                { name: '李牡丹', gender: '女' },
+                { name: '張慶祥', gender: '男' },
+                { name: '劉美玲', gender: '女' },
+                { name: '羅大文', gender: '男' },
+                { name: '吳月娥', gender: '女' },
+                { name: '鄭清泉', gender: '男' }
+            ];
+            
+            const names20 = names10.concat([
+                { name: '孫小萍', gender: '女' },
+                { name: '周志明', gender: '男' },
+                { name: '錢麗華', gender: '女' },
+                { name: '吳建國', gender: '男' },
+                { name: '鄭秀英', gender: '女' },
+                { name: '王文成', gender: '男' },
+                { name: '林月嬌', gender: '女' },
+                { name: '黃志偉', gender: '男' },
+                { name: '張秀美', gender: '女' },
+                { name: '陳建中', gender: '男' }
+            ]);
+            
+            const names30 = names20.concat([
+                { name: '李美珠', gender: '女' },
+                { name: '劉文雄', gender: '男' },
+                { name: '黃春蘭', gender: '女' },
+                { name: '許光明', gender: '男' },
+                { name: '吳彩雲', gender: '女' },
+                { name: '鄭國樑', gender: '男' },
+                { name: '王素芬', gender: '女' },
+                { name: '陳志豪', gender: '男' },
+                { name: '林怡君', gender: '女' },
+                { name: '張家銘', gender: '男' }
+            ]);
+            
+            let demoNames;
+            if (count === 20) demoNames = names20;
+            else if (count === 30) demoNames = names30;
+            else demoNames = names10;
+            
+            let added = 0;
+            demoNames.forEach(d => {
+                if (!students.some(s => s.name === d.name)) {
+                    students.push({
+                        id: Date.now() + added,
+                        name: d.name,
+                        gender: d.gender,
+                        created: new Date().toISOString()
+                    });
+                    added++;
+                }
+            });
+            
+            saveData();
+            renderManageList();
+        renderVolunteerList();
+            renderStudentList();
+            alert(`已載入 ${added} 位範例學員（共 ${students.length} 人）`);
+        }
+
+        function saveData() {
+            localStorage.setItem('ai_signin_students', JSON.stringify(students));
+            localStorage.setItem('ai_signin_signatures', JSON.stringify(signatures));
+            
+            const courseInfo = {
+                organizer: document.getElementById('organizer').value,
+                courseName: document.getElementById('courseName').value,
+                date: document.getElementById('courseDate').value,
+                time: document.getElementById('courseTime').value
+            };
+            localStorage.setItem('ai_signin_course', JSON.stringify(courseInfo));
+        }
+
+        // ========== Render Lists ==========
+        function renderStudentList() {
+            const query = document.getElementById('searchQuery').value.trim().toLowerCase();
+            const list = document.getElementById('studentList');
+            
+            // 只顯示有勾選的學員和志工
+            let allChecked = [...students.filter(s => s.checked), ...volunteers.filter(v => v.checked)];
+            
+            // 搜尋過濾
+            if (query) {
+                allChecked = allChecked.filter(p => p.name.toLowerCase().includes(query));
+            }
+            
+            if (allChecked.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 py-8">尚無勾選的學員或志工，請至「學員」或「志工」分頁勾選</p>';
+                return;
+            }
+            
+            // 三欄格式
+            let html = '<div style="background:white;border:2px solid #06C755;border-radius:10px;overflow:hidden;">';
+            
+            // 標題列
+            html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);background:#06C755;color:white;font-weight:bold;text-align:center;padding:10px 0;">';
+            html += '<div>第一欄</div><div>第二欄</div><div>第三欄</div>';
+            html += '</div>';
+            
+            // 顯示勾選的項目
+            allChecked.forEach((person, idx) => {
+                const row = Math.floor(idx / 3);
+                const col = idx % 3;
+                const sig = signatures[person.id];
+                const isSigned = !!sig;
+                const isVolunteer = !person.gender; // 志工沒有性別欄位
+                
+                if (col === 0) html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #ddd;">';
+                
+                const cellBg = isSigned ? '#d1fae5' : '#f9f9f9';
+                html += '<div style="padding:8px;border-right:1px solid #ddd;background:' + cellBg + ';min-height:60px;">';
+                html += '<div style="display:flex;align-items:center;justify-content:space-between;">';
+                html += '<span style="font-weight:bold;font-size:1.3rem;">' + (idx + 1) + '.</span>';
+                html += '<span style="font-size:1rem;">' + (person.gender ? (person.gender === '男' ? '男' : '女') : '志工') + '</span>';
+                html += '</div>';
+                html += '<div style="font-size:1.4rem;font-weight:bold;margin:5px 0;">' + person.name + '</div>';
+                html += '<button onclick="openSignature(' + person.id + ',\'' + person.name + '\')" style="padding:5px 10px;background:#06C755;color:white;border:none;border-radius:5px;cursor:pointer;font-size:1rem;width:100%;">';
+                html += isSigned ? '✓ ' + sig.time : '✍️ 簽到';
+                html += '</button></div>';
+                
+                if (col === 2) html += '</div>';
+            });
+            
+            html += '</div>';
+            list.innerHTML = html;
+            
+            // 更新總數
+            document.getElementById('studentTotalCount').textContent = '共 ' + allChecked.length + ' 人';
+        }
+
+        // ========== 課程管理 ==========
+        function saveCourse() {
+            const course = {
+                organizer: document.getElementById('organizerSelect').value,
+                title: document.getElementById('courseTitle').value.trim(),
+                goal: document.getElementById('courseGoal').value.trim(),
+                hours: document.getElementById('courseHours').value.trim()
+            };
+            
+            if (!course.organizer) {
+                alert('請選擇承辦單位');
+                return;
+            }
+            
+            localStorage.setItem('signin_course', JSON.stringify(course));
+            alert('課程資訊已儲存！');
+            loadCourseInfo();
+        }
+        
+        function loadCourseInfo() {
+            const course = JSON.parse(localStorage.getItem('signin_course') || '{}');
+            
+            // 填入表單
+            document.getElementById('courseTitle').value = course.title || '';
+            document.getElementById('courseGoal').value = course.goal || '';
+            document.getElementById('courseHours').value = course.hours || '';
+            
+            // 顯示在簽到頁面
+            const display = document.getElementById('courseDisplay');
+            if (course.title) {
+                display.innerHTML = `
+                    <div class="bg-green-50 p-4 rounded-xl mb-2">
+                        <div class="text-xl font-bold text-green-700">📚 ${course.title}</div>
+                        ${course.goal ? `<div class="text-lg text-green-600 mt-1">目標：${course.goal}</div>` : ''}
+                        ${course.hours ? `<div class="text-lg text-green-600">時數：${course.hours}</div>` : ''}
+                    </div>
+                `;
+            } else {
+                display.innerHTML = '';
+            }
+        }
+
+        function renderManageList() {
+            const list = document.getElementById('manageList');
+            
+            // 只顯示有勾選的學生
+            const checkedStudents = students.filter(s => s.checked);
+            
+            let html = '<div style="background:white;border:2px solid #06C755;border-radius:10px;overflow:hidden;">';
+            
+            // 標題列
+            html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);background:#06C755;color:white;font-weight:bold;text-align:center;padding:10px 0;">';
+            html += '<div>勾選</div><div>姓名</div><div>刪除</div>';
+            html += '</div>';
+            
+            // 沒有勾選的提示
+            const uncheckedCount = students.filter(s => !s.checked).length;
+            if (uncheckedCount > 0) {
+                html += '<div style="padding:10px;background:#fef3c7;text-align:center;color:#92400e;">⚠️ 有 ' + uncheckedCount + ' 位學生未勾選，不會顯示在簽到名單中</div>';
+            }
+            
+            // 勾選的學生
+            checkedStudents.forEach((student, idx) => {
+                const row = Math.floor(idx / 3);
+                const col = idx % 3;
+                
+                if (col === 0) html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #ddd;">';
+                
+                html += '<div style="padding:10px;border-right:1px solid #ddd;background:#d1fae5;text-align:center;">';
+                html += '<input type="checkbox" ' + (student.checked ? 'checked' : '') + ' onchange="toggleStudent(' + student.id + ')">';
+                html += '</div>';
+                
+                html += '<div style="padding:10px;border-right:1px solid #ddd;background:#fff;text-align:center;">';
+                html += '<strong>' + student.name + '</strong><br><span style="font-size:0.8rem;color:#666;">' + student.gender + '</span>';
+                html += '</div>';
+                
+                html += '<div style="padding:10px;background:#fff;text-align:center;">';
+                html += '<button onclick="deleteStudent(' + student.id + ')" style="padding:5px 10px;background:#fee2e2;color:#dc2626;border:none;border-radius:5px;cursor:pointer;">刪除</button>';
+                html += '</div>';
+                
+                if (col === 2) html += '</div>';
+            });
+            
+            // 未勾選的學生
+            const uncheckedStudents = students.filter(s => !s.checked);
+            uncheckedStudents.forEach((student, idx) => {
+                const row = Math.floor(idx / 3);
+                const col = idx % 3;
+                
+                if (col === 0 && idx === 0) html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #ddd;background:#f9f9f9;">';
+                else if (col === 0) html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #ddd;background:#f9f9f9;">';
+                
+                html += '<div style="padding:10px;border-right:1px solid #ddd;text-align:center;">';
+                html += '<input type="checkbox" ' + (student.checked ? 'checked' : '') + ' onchange="toggleStudent(' + student.id + ')">';
+                html += '</div>';
+                
+                html += '<div style="padding:10px;border-right:1px solid #ddd;text-align:center;color:#999;">';
+                html += '<strong>' + student.name + '</strong><br><span style="font-size:0.8rem;">' + student.gender + '</span>';
+                html += '</div>';
+                
+                html += '<div style="padding:10px;text-align:center;">';
+                html += '<button onclick="deleteStudent(' + student.id + ')" style="padding:5px 10px;background:#fee2e2;color:#dc2626;border:none;border-radius:5px;cursor:pointer;">刪除</button>';
+                html += '</div>';
+                
+                if (col === 2) html += '</div>';
+            });
+            
+            html += '</div>';
+            
+            list.innerHTML = html;
+        }
+            
+            list.innerHTML = html;
+        }
+
+        // ========== Stats ==========
+        function updateStats() {
+            let male = 0, female = 0;
+            students.forEach(s => {
+                if (signatures[s.id]) {
+                    if (s.gender === '男') male++;
+                    else female++;
+                }
+            });
+            
+            const total = male + female;
+            const percent = students.length > 0 ? Math.round((total / students.length) * 100) : 0;
+            
+            document.getElementById('maleCount').textContent = male;
+            document.getElementById('femaleCount').textContent = female;
+            document.getElementById('totalCount').textContent = total;
+            
+            document.getElementById('statMale').textContent = male;
+            document.getElementById('statFemale').textContent = female;
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statTotalAll').textContent = students.length;
+            
+            document.getElementById('attendancePercent').textContent = percent + '%';
+            
+            const circumference = 2 * Math.PI * 70;
+            const offset = circumference - (percent / 100) * circumference;
+            document.getElementById('progressCircle').style.strokeDashoffset = offset;
+            
+            const barWidth = students.length > 0 ? (total / students.length) * 100 : 0;
+            document.getElementById('attendanceBar').style.width = barWidth + '%';
+        }
+
+        // ========== Signature ==========
+        let signaturePad = null;
+        let currentSignStudentId = null;
+
+        function openSignature(studentId, studentName) {
+            currentSignStudentId = studentId;
+            document.getElementById('signModalTitle').textContent = `${studentName} 簽名`;
+            document.getElementById('signatureModal').classList.add('active');
+            document.body.classList.add('signing');
+            
+            const canvas = document.getElementById('signatureCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            signaturePad = new SignaturePad(canvas, {
+                backgroundColor: 'rgb(255, 255, 255)',
+                penColor: 'rgb(0, 0, 0)'
+            });
+
+            if (signatures[studentId]) {
+                signaturePad.fromDataURL(signatures[studentId].dataUrl);
+            }
+        }
+
+        function closeSignatureModal() {
+            document.getElementById('signatureModal').classList.remove('active');
+            document.body.classList.remove('signing');
+            signaturePad = null;
+            currentSignStudentId = null;
+        }
+
+        function clearSignature() {
+            if (signaturePad) signaturePad.clear();
+        }
+
+        function saveSignature() {
+            if (!signaturePad || signaturePad.isEmpty()) {
+                alert('請先簽名');
+                return;
+            }
+
+            const dataUrl = signaturePad.toDataURL();
+            const time = new Date().toTimeString().substring(0, 5);
+
+            signatures[currentSignStudentId] = {
+                dataUrl,
+                time,
+                timestamp: new Date().toISOString()
+            };
+
+            saveData();
+            closeSignatureModal();
+            renderStudentList();
+            updateStats();
+        }
+
+        // ========== Export ==========
+        function renderExportPreview() {
+            const tbody = document.getElementById('previewTable');
+            
+            // 三欄 30 座號格式
+            const totalSeats = 30;
+            let html = '<div style="background:white;border:2px solid #06C755;border-radius:10px;overflow:hidden;">';
+            
+            // 標題列
+            html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);background:#06C755;color:white;font-weight:bold;text-align:center;padding:10px 0;">';
+            html += '<div>第一欄</div><div>第二欄</div><div>第三欄</div>';
+            html += '</div>';
+            
+            // 30個座號
+            for (let row = 0; row < 10; row++) {
+                html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #ddd;">';
+                
+                for (let col = 0; col < 3; col++) {
+                    const seatNum = row * 3 + col + 1;
+                    const student = students[seatNum - 1];
+                    const sig = student ? signatures[student.id] : null;
+                    const isSigned = !!sig;
+                    
+                    const cellBg = isSigned ? '#d1fae5' : '#f9f9f9';
+                    
+                    html += '<div style="padding:8px;border-right:1px solid #ddd;background:' + cellBg + ';min-height:50px;">';
+                    html += '<div style="font-size:1.4rem;font-weight:bold;margin-bottom:5px;">' + seatNum + '.</div>';
+                    
+                    if (student) {
+                        html += '<div style="font-size:1.4rem;font-weight:bold;">' + student.name + '</div>';
+                        html += '<div style="font-size:0.8rem;color:#666;">' + student.gender + '</div>';
+                        if (isSigned) {
+                            html += '<div style="color:#06C755;font-weight:bold;font-size:1rem;">✓ ' + sig.time + '</div>';
+                        }
+                    } else {
+                        html += '<div style="color:#999;font-size:1rem;">-</div>';
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            tbody.innerHTML = html;
+        }
+
+        function exportExcel() {
+            const organizer = document.getElementById('organizer').value || '花蓮市樂齡學習中心';
+            const courseName = document.getElementById('courseName').value || '課程';
+            const date = document.getElementById('courseDate').value;
+            const time = document.getElementById('courseTime').value;
+            
+            // 取得課程資訊
+            const course = JSON.parse(localStorage.getItem('signin_course') || '{}');
+
+            const wsData = [
+                ['', '🌸 花蓮市樂齡學習中心 學員簽到表'],
+                ['承辦單位', organizer],
+                ['課程名稱', courseName],
+                ['日期', date],
+                ['時間', time],
+                ['', ''],
+                ['數位課程名稱', course.title || '-'],
+                ['教學目標', course.goal || '-'],
+                ['課程時數', course.hours || '-'],
+                ['', ''],
+                ['編號', '姓名', '性別', '簽名', '簽到時間']
+            ];
+
+            students.forEach((s, i) => {
+                const sig = signatures[s.id];
+                wsData.push([
+                    i + 1,
+                    s.name,
+                    s.gender,
+                    sig ? '✓' : '-',
+                    sig ? sig.time : '-'
+                ]);
+            });
+
+            wsData.push(['', '']);
+            wsData.push(['男', stats.male, '人']);
+            wsData.push(['女', stats.female, '人']);
+            wsData.push(['總計', stats.total, '人']);
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            ws['!cols'] = [{ wch: 8 }, { wch: 15 }, { wch: 8 }, { wch: 12 }, { wch: 15 }];
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '簽到表');
+            XLSX.writeFile(wb, `簽到表_${courseName}_${date}.xlsx`);
+        }
+
+        // ========== 預覽含簽名 ==========
+        function previewWithSignatures() {
+            const organizer = document.getElementById('organizer').value || '花蓮市樂齡學習中心';
+            const courseName = document.getElementById('courseName').value || '課程';
+            const date = document.getElementById('courseDate').value;
+            const course = JSON.parse(localStorage.getItem('signin_course') || '{}');
+            
+            // 建立預覽內容
+            let html = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>簽到表預覽 - ${courseName}</title>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+                <style>
+                    * { box-sizing: border-box; }
+                    body { font-family: 'Noto Sans TC', sans-serif; padding: 20px; background: #f5f5f5; }
+                    .header { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+                    .header h1 { color: #06C755; margin: 0 0 10px; }
+                    .info { display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin: 10px 0; }
+                    .info div { background: #d1fae5; padding: 8px 16px; border-radius: 20px; }
+                    .download-btn { 
+                        display: block; 
+                        width: 200px; 
+                        margin: 20px auto; 
+                        padding: 15px; 
+                        background: #06C755; 
+                        color: white; 
+                        border: none; 
+                        border-radius: 10px; 
+                        font-size: 18px; 
+                        cursor: pointer; 
+                    }
+                    .download-btn:hover { background: #05B54D; }
+                </style>
+            </head>
+            <body>
+                <div id="captureArea" style="background:white;padding:20px;border-radius:10px;">
+                <div class="header" style="background:#d1fae5;padding:15px;border-radius:10px;">
+                    <h1 style="color:#06C755;margin:0 0 10px;">🌸 花蓮市樂齡學習中心 學員簽到表</h1>
+                    <div class="info">
+                        <div>📚 ${course.title || courseName}</div>
+                        <div>📅 ${date}</div>
+                        ${course.goal ? `<div>🎯 ${course.goal}</div>` : ''}
+                        ${course.hours ? `<div>⏰ ${course.hours}</div>` : ''}
+                    </div>
+                </div>
+                
+                <div style="border:2px solid #06C755;border-radius:10px;overflow:hidden;margin-top:20px;">
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);background:#06C755;color:white;font-weight:bold;text-align:center;padding:10px 0;">
+                        <div>第一欄</div><div>第二欄</div><div>第三欄</div>
+                    </div>
+            `;
+            
+            // 30個座號
+            for (let row = 0; row < 10; row++) {
+                html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #ddd;">';
+                
+                for (let col = 0; col < 3; col++) {
+                    const seatNum = row * 3 + col + 1;
+                    const student = students[seatNum - 1];
+                    const sig = student ? signatures[student.id] : null;
+                    const isSigned = !!sig;
+                    
+                    const cellBg = isSigned ? '#d1fae5' : '#f9f9f9';
+                    
+                    html += '<div style="padding:10px;border-right:1px solid #ddd;background:' + cellBg + ';min-height:80px;">';
+                    html += '<div style="font-size:1.5rem;font-weight:bold;margin-bottom:8px;">' + seatNum + '.</div>';
+                    
+                    if (student) {
+                        html += '<div style="font-size:1.4rem;font-weight:bold;margin-bottom:5px;">' + student.name + '</div>';
+                        html += '<div style="font-size:0.8rem;color:#666;margin-bottom:5px;">' + student.gender + '</div>';
+                        if (isSigned) {
+                            html += '<div style="margin-top:5px;"><img src="' + sig.dataUrl + '" style="height:35px;border:1px solid #ddd;border-radius:3px;"></div>';
+                            html += '<div style="font-size:0.7rem;color:#06C755;font-weight:bold;">' + sig.time + '</div>';
+                        }
+                    } else {
+                        html += '<div style="color:#999;">-</div>';
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+            }
+            
+            html += `
+                </div>
+                
+                <div style="text-align:center;margin:20px;color:#666;font-weight:bold;">
+                    男: ${stats.male} 人 | 女: ${stats.female} 人 | 總計: ${stats.total} 人
+                </div>
+                </div>
+                
+                <button class="download-btn" onclick="downloadAsImage()">📷 匯出成圖片</button>
+                
+                <script>
+                    function downloadAsImage() {
+                        const area = document.getElementById('captureArea');
+                        html2canvas(area, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+                            const link = document.createElement('a');
+                            link.download = '簽到表_${courseName}_${date}.png';
+                            link.href = canvas.toDataURL('image/png');
+                            link.click();
+                        });
+                    }
+                <\/script>
+            </body>
+            </html>
+            `;
+            
+            // 打開新視窗顯示
+            const win = window.open('', '_blank');
+            win.document.write(html);
+            win.document.close();
+        }
+
+        function exportSignatures() {
+            let count = 0;
+            const downloadQueue = [];
+            
+            students.forEach((s, i) => {
+                if (signatures[s.id]) {
+                    downloadQueue.push({ name: s.name, dataUrl: signatures[s.id].dataUrl });
+                }
+            });
+            
+            if (downloadQueue.length === 0) {
+                alert('尚無簽名資料');
+                return;
+            }
+            
+            // 用延遲確保下載成功
+            let idx = 0;
+            function downloadNext() {
+                if (idx < downloadQueue.length) {
+                    const item = downloadQueue[idx];
+                    const link = document.createElement('a');
+                    link.download = `${idx + 1}_${item.name}_簽名.png`;
+                    link.href = item.dataUrl;
+                    link.click();
+                    idx++;
+                    setTimeout(downloadNext, 500); // 每次間隔0.5秒
+                } else {
+                    alert(`已下載 ${downloadQueue.length} 張簽名圖片`);
+                }
+            }
+            downloadNext();
+        }
+
+        // ========== Stats Object ==========
+        const stats = {
+            get male() {
+                let m = 0;
+                students.forEach(s => { if (signatures[s.id] && s.gender === '男') m++; });
+                return m;
+            },
+            get female() {
+                let f = 0;
+                students.forEach(s => { if (signatures[s.id] && s.gender === '女') f++; });
+                return f;
+            },
+            get total() { return this.male + this.female; }
+        };
+
+        // 字體大小設定
+        const fontSizes = {
+            'sm': { name: '手機', scale: 0.8, padding: 'px-4', py: 'py-2' },
+            'md': { name: '平板', scale: 1, padding: 'px-6', py: 'py-4' },
+            'lg': { name: '大字', scale: 1.3, padding: 'px-8', py: 'py-6' }
+        };
+
+        function setFontSize(size) {
+            const main = document.getElementById('mainContent');
+            const config = fontSizes[size];
+            
+            // 移除舊的class
+            main.classList.remove('text-base', 'text-lg', 'text-xl');
+            
+            // 設定新的class
+            if (size === 'sm') main.classList.add('text-base');
+            else if (size === 'md') main.classList.add('text-lg');
+            else if (size === 'lg') main.classList.add('text-xl');
+            
+            // 儲存設定
+            localStorage.setItem('signin_fontsize', size);
+            
+            // 更新按鈕樣式
+            ['fontSm', 'fontMd', 'fontLg'].forEach(id => {
+                document.getElementById(id).classList.remove('bg-green-500', 'text-white');
+                document.getElementById(id).classList.add('bg-gray-200');
+            });
+            document.getElementById('font' + size.charAt(0).toUpperCase() + size.slice(1)).classList.add('bg-green-500', 'text-white');
+            document.getElementById('font' + size.charAt(0).toUpperCase() + size.slice(1)).classList.remove('bg-gray-200');
+        }
+
+        // 載入儲存的大小
+        const savedSize = localStorage.getItem('signin_fontsize') || 'md';
+        setFontSize(savedSize);
+    </script>
+    
+    <!-- 頁尾版權 -->
+    <footer class="text-center py-3 text-lg text-gray-500 border-t mt-8">
+        <p>© 2026 花蓮縣花蓮市樂齡學習中心</p>
+        <p>開發人員：GM | 電話：03-8328647</p>
+        <p>版本：v0.01</p>
+    </footer>
+</body>
+</html>
+
+        // ========== Volunteer Functions ==========
+        function addVolunteer() {
+            const name = document.getElementById("newVolunteerName").value.trim();
+            if (!name) { alert("請輸入志工姓名"); return; }
+            const volunteer = { id: Date.now(), name: name, checked: true };
+            volunteers.push(volunteer);
+            localStorage.setItem("ai_signin_volunteers", JSON.stringify(volunteers));
+            document.getElementById("newVolunteerName").value = "";
+            renderVolunteerList();
+        }
+        
+        function toggleVolunteer(id) {
+            const v = volunteers.find(x => x.id === id);
+            if (v) { v.checked = !v.checked; localStorage.setItem("ai_signin_volunteers", JSON.stringify(volunteers)); }
+        }
+        
+        function clearAllVolunteers() {
+            if (confirm("確定要清除所有志工嗎？")) {
+                volunteers = [];
+                localStorage.setItem("ai_signin_volunteers", JSON.stringify(volunteers));
+                renderVolunteerList();
+            }
+        }
+        
+        function renderVolunteerList() {
+            const list = document.getElementById("volunteerList");
+            if (volunteers.length === 0) {
+                list.innerHTML = "<p class=\"text-center text-gray-500 py-8\">尚無志工</p>";
+                return;
+            }
+            let html = "<div style=\"display:grid;grid-template-columns:repeat(3,1fr);gap:10px;\">";
+            volunteers.forEach((v, i) => {
+                html += "<div style=\"padding:10px;border:2px solid #06C755;border-radius:10px;text-align:center;background:"+(v.checked?"#d1fae5":"#f9f9f9")+";cursor:pointer;\" onclick=\"toggleVolunteer("+v.id+")\">";
+                html += "<input type=\"checkbox\" "+(v.checked?"checked":"")+" disabled> ";
+                html += "<strong>"+v.name+"</strong>";
+                html += "</div>";
+            });
+            html += "</div>";
+            list.innerHTML = html;
+        }
+        
+        function saveCourseWithOrganizer() {
+            const course = {
+                organizer: document.getElementById("organizerSelect").value,
+                title: document.getElementById("courseTitle").value.trim(),
+                goal: document.getElementById("courseGoal").value.trim(),
+                hours: document.getElementById("courseHours").value.trim()
+            };
+            if (!course.organizer) { alert("請選擇承辦單位"); return; }
+            localStorage.setItem("signin_course", JSON.stringify(course));
+            alert("課程資訊已儲存！");
+            loadCourseInfo();
+        }
+
+    </script>
+    
+    <!-- 頁尾版權 -->
+    <footer class="text-center py-3 text-lg text-gray-500 border-t mt-8">
+        <p>© 2026 花蓮縣花蓮市樂齡學習中心</p>
+        <p>開發人員：GM | 電話：03-8328647</p>
+        <p>版本：v0.01</p>
+    </footer>
+</body>
+</html>

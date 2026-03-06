@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>樂齡學習中心 簽到系統</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c7873 0%, #0f3d3e 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        .header h1 { margin: 0; font-size: 1.5rem; }
+        .header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        .form-group input:focus {
+            border-color: #2c7873;
+            outline: none;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #2c7873;
+            color: white;
+        }
+        .btn-primary:hover { background: #1e5c59; }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .student-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .student-item {
+            display: grid;
+            grid-template-columns: 50px 1fr 120px 80px;
+            gap: 10px;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .student-item:last-child { border-bottom: none; }
+        
+        .student-num {
+            font-weight: bold;
+            color: #666;
+            text-align: center;
+        }
+        
+        .student-name {
+            font-size: 1.1rem;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+
+        .sign-btn {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+        .sign-btn.signed {
+            background: #28a745;
+            color: white;
+        }
+        .sign-btn.empty {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .signature-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            overflow: auto;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+        .signature-modal.active { display: flex; align-items: center; justify-content: center; }
+        
+        body.signing {
+            overflow: hidden !important;
+            position: fixed !important;
+            width: 100% !important;
+            height: 100% !important;
+            overscroll-behavior: none;
+        }
+
+        .signature-box {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 95%;
+            max-width: 600px;
+            position: relative;
+            touch-action: none;
+        }
+        
+        .signature-canvas {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            touch-action: none;
+            width: 100%;
+            height: 250px;
+        }
+        
+        .signature-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.85rem;
+        }
+        .attendance-table th, .attendance-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .attendance-table th {
+            background: #2c7873;
+            color: white;
+        }
+        .attendance-table tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        .attendance-table img {
+            max-width: 80px;
+            max-height: 40px;
+            border: 1px solid #ccc;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 15px 0;
+            font-size: 1.1rem;
+        }
+        .stat-item {
+            background: #f0f0f0;
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+        .stat-item strong { color: #2c7873; }
+
+        .tab-nav {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 15px;
+        }
+        .tab-btn {
+            padding: 12px 24px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #666;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-btn.active {
+            color: #2c7873;
+            border-bottom-color: #2c7873;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        @media (max-width: 768px) {
+            .student-item {
+                grid-template-columns: 40px 1fr;
+                gap: 8px;
+            }
+            .sign-btn { grid-column: span 2; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌸 花蓮市樂齡學習中心 簽到系統</h1>
+        <p>學員簽到 / 匯出Excel / 簽名圖片存檔</p>
+    </div>
+
+    <div class="container">
+        <!-- 標籤頁導航 -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('signin')">📝 簽到</button>
+            <button class="tab-btn" onclick="switchTab('manage')">👥 學員管理</button>
+            <button class="tab-btn" onclick="switchTab('export')">📊 匯出</button>
+        </div>
+
+        <!-- 簽到頁面 -->
+        <div id="signin" class="tab-content active">
+            <div class="card">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>承辦單位</label>
+                        <input type="text" id="organizer" placeholder="例如：花蓮市樂齡學習中心">
+                    </div>
+                    <div class="form-group">
+                        <label>課程名稱</label>
+                        <input type="text" id="courseName" placeholder="例如：書法研習班">
+                    </div>
+                    <div class="form-group">
+                        <label>日期</label>
+                        <input type="date" id="courseDate">
+                    </div>
+                    <div class="form-group">
+                        <label>時間</label>
+                        <input type="time" id="courseTime">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📋 學員簽到名單</h3>
+                <div id="studentList" class="student-list"></div>
+                <div class="stats-row">
+                    <div class="stat-item">男: <strong id="maleCount">0</strong> 人</div>
+                    <div class="stat-item">女: <strong id="femaleCount">0</strong> 人</div>
+                    <div class="stat-item">總計: <strong id="totalCount">0</strong> 人</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 學員管理頁面 -->
+        <div id="manage" class="tab-content">
+            <div class="card">
+                <h3>➕ 新增學員</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>姓名</label>
+                        <input type="text" id="newStudentName" placeholder="學員姓名">
+                    </div>
+                    <div class="form-group">
+                        <label>性別</label>
+                        <select id="newStudentGender">
+                            <option value="男">男</option>
+                            <option value="女">女</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button class="btn btn-primary" onclick="addStudent()">新增</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📋 學員列表</h3>
+                <div class="btn-group" style="margin-bottom: 15px;">
+                    <button class="btn btn-secondary" onclick="loadDemoStudents()">載入範例學員</button>
+                    <button class="btn btn-danger" onclick="clearAllStudents()">清除全部</button>
+                </div>
+                <div id="manageStudentList" class="student-list"></div>
+            </div>
+        </div>
+
+        <!-- 匯出頁面 -->
+        <div id="export" class="tab-content">
+            <div class="card">
+                <h3>📊 匯出選項</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>目前日期</label>
+                        <input type="text" id="exportDate" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>目前課程</label>
+                        <input type="text" id="exportCourse" readonly>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="exportExcel()">📥 匯出 Excel</button>
+                    <button class="btn btn-secondary" onclick="exportImages()">🖼️ 匯出簽名圖片</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📋 預覽</h3>
+                <div style="overflow-x: auto;">
+                    <table class="attendance-table" id="previewTable">
+                        <thead>
+                            <tr>
+                                <th>編號</th>
+                                <th>姓名</th>
+                                <th>性別</th>
+                                <th>簽名</th>
+                                <th>簽到時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 簽名 Modal -->
+    <div id="signatureModal" class="signature-modal">
+        <div class="signature-box">
+            <h3 id="signModalTitle">學員簽名</h3>
+            <canvas id="signatureCanvas" class="signature-canvas"></canvas>
+            <div class="signature-actions">
+                <button class="btn btn-danger" onclick="clearSignature()">清除</button>
+                <button class="btn btn-secondary" onclick="closeSignatureModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveSignature()">確認簽名</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 資料管理 ==========
+        let students = JSON.parse(localStorage.getItem('signin_students') || '[]');
+        let currentSignatures = {}; // { studentId: { dataUrl, time } }
+
+        // ========== 初始化 ==========
+        document.getElementById('courseDate').valueAsDate = new Date();
+        document.getElementById('courseTime').value = new Date().toTimeString().substring(0, 5);
+        
+        renderStudentList();
+        renderManageList();
+
+        // ========== 標籤頁切換 ==========
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabId === 'export') {
+                updateExportPreview();
+            }
+        }
+
+        // ========== 學員管理 ==========
+        function addStudent() {
+            const name = document.getElementById('newStudentName').value.trim();
+            const gender = document.getElementById('newStudentGender').value;
+            
+            if (!name) {
+                alert('請輸入姓名');
+                return;
+            }
+
+            const student = {
+                id: Date.now(),
+                name: name,
+                gender: gender,
+                created: new Date().toISOString()
+            };
+
+            students.push(student);
+            saveStudents();
+            renderManageList();
+            renderStudentList();
+            
+            document.getElementById('newStudentName').value = '';
+            document.getElementById('newStudentName').focus();
+        }
+
+        function deleteStudent(id) {
+            if (confirm('確定要刪除這位學員嗎？')) {
+                students = students.filter(s => s.id !== id);
+                delete currentSignatures[id];
+                saveStudents();
+                renderManageList();
+                renderStudentList();
+            }
+        }
+
+        function saveStudents() {
+            localStorage.setItem('signin_students', JSON.stringify(students));
+        }
+
+        function clearAllStudents() {
+            if (confirm('確定要清除所有學員嗎？此操作無法復原！')) {
+                students = [];
+                currentSignatures = {};
+                saveStudents();
+                renderManageList();
+                renderStudentList();
+            }
+        }
+
+        function loadDemoStudents() {
+            const demoData = [
+                { name: '王美華', gender: '女' },
+                { name: '陳素雲', gender: '女' },
+                { name: '林水木', gender: '男' },
+                { name: '黃金土', gender: '男' },
+                { name: '李牡丹', gender: '女' },
+                { name: '張慶祥', gender: '男' },
+                { name: '劉美玲', gender: '女' },
+                { name: '羅大文', gender: '男' },
+                { name: '吳月娥', gender: '女' },
+                { name: '鄭清泉', gender: '男' },
+            ];
+            
+            let count = 0;
+            demoData.forEach(d => {
+                const exists = students.some(s => s.name === d.name);
+                if (!exists) {
+                    students.push({
+                        id: Date.now() + count,
+                        name: d.name,
+                        gender: d.gender,
+                        created: new Date().toISOString()
+                    });
+                    count++;
+                }
+            });
+            
+            saveStudents();
+            renderManageList();
+            renderStudentList();
+            alert(`已新增 ${count} 位範例學員`);
+        }
+
+        function renderManageList() {
+            const list = document.getElementById('manageStudentList');
+            if (students.length === 0) {
+                list.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">尚無學員，請新增或載入範例</p>';
+                return;
+            }
+
+            list.innerHTML = students.map(s => `
+                <div class="student-item">
+                    <span class="student-num">${s.id}</span>
+                    <div>
+                        <strong>${s.name}</strong>
+                        <span style="color:#666;margin-left:10px;">${s.gender}</span>
+                    </div>
+                    <button class="btn btn-danger" onclick="deleteStudent(${s.id})">刪除</button>
+                </div>
+            `).join('');
+        }
+
+        // ========== 簽到列表 ==========
+        function renderStudentList() {
+            const list = document.getElementById('studentList');
+            if (students.length === 0) {
+                list.innerHTML = '<p style="text-align:center;color:#999;padding:20px;">請先至「學員管理」新增學員</p>';
+                return;
+            }
+
+            let maleCount = 0;
+            let femaleCount = 0;
+
+            list.innerHTML = students.map((s, index) => {
+                const sig = currentSignatures[s.id];
+                const isSigned = !!sig;
+                
+                if (isSigned) {
+                    if (s.gender === '男') maleCount++;
+                    else femaleCount++;
+                }
+
+                const btnClass = isSigned ? 'signed' : 'empty';
+                const btnText = isSigned ? '✅ 已簽到' : '✍️ 簽到';
+
+                return `
+                    <div class="student-item">
+                        <span class="student-num">${index + 1}</span>
+                        <div>
+                            <strong>${s.name}</strong>
+                            <span style="color:#666;margin-left:10px;">${s.gender}</span>
+                            ${isSigned ? `<span style="color:#28a745;margin-left:10px;">${sig.time}</span>` : ''}
+                        </div>
+                        ${isSigned 
+                            ? `<button class="btn sign-btn signed" onclick="openSignature(${s.id}, '${s.name}')">重新簽名</button>`
+                            : `<button class="btn sign-btn empty" onclick="openSignature(${s.id}, '${s.name}')">${btnText}</button>`
+                        }
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('maleCount').textContent = maleCount;
+            document.getElementById('femaleCount').textContent = femaleCount;
+            document.getElementById('totalCount').textContent = maleCount + femaleCount;
+        }
+
+        // ========== 簽名功能 ==========
+        let signaturePad = null;
+        let currentSignStudentId = null;
+
+        function openSignature(studentId, studentName) {
+            currentSignStudentId = studentId;
+            document.getElementById('signModalTitle').textContent = `${studentName} 簽名`;
+            document.getElementById('signatureModal').classList.add('active');
+            document.body.classList.add('signing');
+            
+            const canvas = document.getElementById('signatureCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            signaturePad = new SignaturePad(canvas, {
+                backgroundColor: 'rgb(255, 255, 255)',
+                penColor: 'rgb(0, 0, 0)'
+            });
+
+            // 如果已有簽名，載入
+            if (currentSignatures[studentId]) {
+                signaturePad.fromDataURL(currentSignatures[studentId].dataUrl);
+            }
+        }
+
+        function closeSignatureModal() {
+            document.getElementById('signatureModal').classList.remove('active');
+            document.body.classList.remove('signing');
+            signaturePad = null;
+            currentSignStudentId = null;
+        }
+
+        function clearSignature() {
+            if (signaturePad) {
+                signaturePad.clear();
+            }
+        }
+
+        function saveSignature() {
+            if (!signaturePad || signaturePad.isEmpty()) {
+                alert('請先簽名');
+                return;
+            }
+
+            const dataUrl = signaturePad.toDataURL();
+            const now = new Date();
+            const time = now.toTimeString().substring(0, 5);
+
+            currentSignatures[currentSignStudentId] = {
+                dataUrl: dataUrl,
+                time: time,
+                timestamp: now.toISOString()
+            };
+
+            closeSignatureModal();
+            renderStudentList();
+        }
+
+        // ========== 匯出功能 ==========
+        function updateExportPreview() {
+            const courseName = document.getElementById('courseName').value || '未設定課程';
+            const courseDate = document.getElementById('courseDate').value || '未設定日期';
+            
+            document.getElementById('exportDate').value = courseDate;
+            document.getElementById('exportCourse').value = courseName;
+
+            const tbody = document.getElementById('previewBody');
+            tbody.innerHTML = students.map((s, index) => {
+                const sig = currentSignatures[s.id];
+                return `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${s.name}</td>
+                        <td>${s.gender}</td>
+                        <td>${sig ? '<img src="' + sig.dataUrl + '">' : '-'}</td>
+                        <td>${sig ? sig.time : '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function exportExcel() {
+            const courseName = document.getElementById('courseName').value || '樂齡課程';
+            const courseDate = document.getElementById('courseDate').value;
+            const courseTime = document.getElementById('courseTime').value;
+            const organizer = document.getElementById('organizer').value || '花蓮市樂齡學習中心';
+
+            // 建立工作表資料
+            const wsData = [
+                ['', '花蓮市樂齡學習中心 學員簽到表'],
+                ['承辦單位', organizer],
+                ['課程名稱', courseName],
+                ['日期', courseDate],
+                ['時間', courseTime],
+                ['', ''],
+                ['編號', '姓名', '性別', '簽名', '簽到時間']
+            ];
+
+            let maleCount = 0;
+            let femaleCount = 0;
+
+            students.forEach((s, index) => {
+                const sig = currentSignatures[s.id];
+                const sigTime = sig ? sig.time : '';
+                
+                if (sig) {
+                    if (s.gender === '男') maleCount++;
+                    else femaleCount++;
+                }
+
+                wsData.push([
+                    index + 1,
+                    s.name,
+                    s.gender,
+                    sig ? '已簽到' : '未簽到',
+                    sigTime
+                ]);
+            });
+
+            wsData.push(['', '']);
+            wsData.push(['統計', '', '', '', '']);
+            wsData.push(['男', maleCount, '人']);
+            wsData.push(['女', femaleCount, '人']);
+            wsData.push(['總計', maleCount + femaleCount, '人']);
+
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '簽到表');
+
+            // 設定欄寬
+            ws['!cols'] = [{ wch: 8 }, { wch: 15 }, { wch: 8 }, { wch: 15 }, { wch: 12 }];
+
+            const fileName = `簽到表_${courseName}_${courseDate}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function exportImages() {
+            const courseDate = document.getElementById('courseDate').value || 'unknown';
+            
+            // 建立 ZIP (簡單用 JSZip)
+            // 這裡先用簡單方式：下載所有簽名圖片
+            
+            let sigCount = 0;
+            students.forEach((s, index) => {
+                const sig = currentSignatures[s.id];
+                if (sig) {
+                    sigCount++;
+                    const link = document.createElement('a');
+                    link.download = `${index + 1}_${s.name}_${s.gender}_簽名.png`;
+                    link.href = sig.dataUrl;
+                    link.click();
+                }
+            });
+
+            if (sigCount === 0) {
+                alert('尚無簽名資料');
+            } else {
+                alert(`已下載 ${sigCount} 張簽名圖片`);
+            }
+        }
+
+        // 綁定課程資訊變更
+        document.getElementById('courseName').addEventListener('change', updateExportPreview);
+        document.getElementById('courseDate').addEventListener('change', updateExportPreview);
+    </script>
+</body>
+</html>

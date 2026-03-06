@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>樂齡學習中心 AI 簽到系統（離線版）</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- 離線版本：使用本地端 Libraries -->
+    <script src="libs/xlsx.full.min.js"></script>
+    <script src="libs/signature_pad.umd.min.js"></script>
+    <script src="libs/html2canvas.min.js"></script>
+    <style>
+        * { 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* 禁用選取避免觸控困擾 */
+        body, button, select, input, textarea { 
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        /* ====== 白底黑字 + 大字體 ====== */
+        body { 
+            font-family: 'Noto Sans CJK JP', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif; 
+            background: #ffffff; 
+            color: #000000; 
+            font-weight: bold;
+            min-height: 100vh; 
+            margin: 0; 
+            font-size: 30px;
+            font-weight: bold;
+            touch-action: manipulation;
+        }
+        
+        h1 { font-size: 90px !important; font-weight: 900; }
+        h2 { font-size: 30px !important; font-weight: 900; }
+        h3 { font-size: 30px !important; font-weight: 900; }
+        h4 { font-size: 30px !important; font-weight: 900; }
+        
+        .btn { 
+            background: #000000; 
+            color: white; 
+            padding: 16px 24px; 
+            border-radius: 12px; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 30px; 
+            font-weight: bold; 
+            min-height: 56px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+        }
+        .btn:hover { opacity: 0.8; }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        
+        .card { 
+            background: #ffffff; 
+            border: 2px solid #000000;
+            border-radius: 16px; 
+            padding: 16px; 
+            margin-bottom: 12px; 
+        }
+        
+        .tab { 
+            padding: 20px 28px; 
+            border-radius: 25px; 
+            background: #ffffff; 
+            border: 2px solid #000000;
+            cursor: pointer; 
+            font-size: 30px; 
+            font-weight: bold; 
+            white-space: nowrap; flex: 1; text-align: center; 
+        }
+        .tab.active { background: #000000; color: white; font-weight: bold; }
+        
+        .input { 
+            padding: 16px; 
+            border: 2px solid #000000; 
+            border-radius: 12px; 
+            font-size: 30px; 
+            width: 100%; 
+            min-height: 44px;  
+        }
+        
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .sig-canvas { border: 3px dashed #000000; border-radius: 12px; background: white; touch-action: none; }
+        
+        /* 表格樣式 - 手機 */
+        table { font-size: 30px; }
+        table th, table td { padding: 10px 6px; }
+        
+        /* ====== 手機樣式 (< 576px) ====== */
+        @media (max-width: 575px) {
+            body { font-size: 30px; }
+            h1 { font-size: 18px !important; }
+            h2 { font-size: 17px !important; }
+            h3 { font-size: 22px !important; }
+            h4 { font-size: 16px !important; }
+            .btn { 
+                padding: 14px 20px; 
+                font-size: 30px; 
+                min-height: 52px; 
+                border-radius: 10px;
+            }
+            .card { padding: 10px; margin-bottom: 8px; border-radius: 8px; }
+            .tab { padding: 18px 22px; font-size: 30px; min-height: 52px; }
+            .input { font-size: 30px; padding: 12px; min-height: 52px; }
+            table { font-size: 30px; }
+            table th, table td { padding: 10px 6px; }
+            
+            /* 增加表格行的觸控區域 */
+            table tr { min-height: 52px; }
+            table td { padding: 14px 8px; }
+        }
+        
+        /* ====== 平板樣式 (576px - 992px) ====== */
+        @media (min-width: 576px) and (max-width: 992px) {
+            body { font-size: 20px; }
+            h1 { font-size: 22px !important; }
+            h2 { font-size: 21px !important; }
+            h3 { font-size: 26px !important; }
+            h4 { font-size: 20px !important; }
+            .btn { padding: 14px 20px; font-size: 28px; min-height: 56px; }
+            .card { padding: 14px; margin-bottom: 10px; border-radius: 12px; }
+            .tab { padding: 20px 28px; font-size: 30px; min-height: 56px; }
+            .input { font-size: 28px; padding: 14px; min-height: 56px; }
+            table { font-size: 28px; }
+            table th, table td { padding: 12px 8px; }
+            
+            /* 增加表格行的觸控區域 */
+            table tr { min-height: 56px; }
+            table td { padding: 16px 10px; }
+        }
+        
+        /* ====== 桌電樣式 (993px+) ====== */
+        @media (min-width: 993px) {
+            body { font-size: 30px; }
+            h1 { font-size: 28px !important; }
+            h2 { font-size: 26px !important; }
+            h3 { font-size: 30px !important; }
+            h4 { font-size: 25px !important; }
+            .btn { padding: 12px 20px; font-size: 30px; min-height: 50px; border-radius: 10px; }
+            .card { padding: 18px; margin-bottom: 14px; border-radius: 16px; }
+            .tab { padding: 24px 32px; font-size: 30px; }
+            .input { font-size: 30px; padding: 12px; min-height: 50px; }
+            table { font-size: 30px; }
+            table th, table td { padding: 12px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div style="background: #000000; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="color: white; margin: 0; font-size: 90px; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;">花蓮市樂齡學習中心 | AI 智慧簽到系統</h1>
+        <div style="display: flex; gap: 8px; align-items: center;">
+
+            <div id="adminBtn"></div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="padding: 16px; display: flex; gap: 12px; overflow-x: auto; flex-wrap: wrap; justify-content: stretch; width: 100%;">
+        <button class="tab active" onclick="switchTab('signin')" id="tab-signin" style="border-radius:0;">學員簽到</button>
+        <button class="tab" onclick="switchTab('students')" id="tab-students" style="border-radius:0;">學員管理</button>
+        <button class="tab" onclick="switchTab('volunteers')" id="tab-volunteers" style="border-radius:0;">志工管理</button>
+        <button class="tab" onclick="switchTab('course')" id="tab-course" style="border-radius:0;">新增課程</button>
+        <button class="tab" onclick="switchTab('stats')" id="tab-stats" style="border-radius:0;">簽到統計</button>
+        <button class="tab" onclick="switchTab('export')" id="tab-export" style="border-radius:0;">簽到匯出</button>
+    </div>
+
+    <!-- Content -->
+    <div style="padding: 12px; width: 100%; max-width: 100%;">
+    <!-- 手機滿版內容區域 -->
+        
+        <!-- Students Tab -->
+        <div id="students-content">
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">➕ 新增學員</h3>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                    <input id="newStudentName" placeholder="姓名" class="input" style="flex:1;min-width:150px;">
+                    <select id="newStudentGender" class="input" style="width:auto;">
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                    <button onclick="addStudent()" class="btn">➕ 新增</button>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button onclick="loadDemo(10)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 10人</button>
+                    <button onclick="loadDemo(20)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 20人</button>
+                    <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
+                    <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">學員管理列表（勾選列入簽到）</h3>
+                <div id="manageList"></div>
+            </div>
+        </div>
+
+        <!-- Volunteers Tab -->
+        <div id="volunteers-content" style="display:none;">
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">➕ 新增數位志工</h3>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <input id="newVolunteerName" placeholder="姓名" class="input" style="flex:1;min-width:150px;">
+                    <select id="newVolunteerRole" class="input" style="width:auto;">
+                        <option value="數位志工">數位志工</option>
+                        <option value="數位幫手">數位幫手</option>
+                    </select>
+                    <button onclick="addVolunteer()" class="btn">➕ 新增</button>
+                </div>
+                <div style="margin-top:8px;">
+                    <button onclick="clearAllVolunteers()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除全部</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">🔍 搜尋</h3>
+                <input id="searchVolunteerQuery" placeholder="輸入姓名搜尋..." class="input" onkeyup="renderVolunteerList()" style="margin-bottom:12px;">
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">🌟 數位志工列表</h3>
+                <div id="volunteerList"></div>
+            </div>
+        </div>
+
+        <!-- Course Tab -->
+        <div id="course-content" style="display:none;">
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">🏢 承辦單位</h3>
+                <select id="organizerSelect" onchange="showSelectedOrganizer()" class="input" style="margin-bottom:8px;"></select>
+                <div id="selectedOrgDisplay" style="padding:10px;background:#ffffff;border-radius:8px;margin-bottom:8px;color:#000000;font-weight:bold;"></div>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input id="newOrganizer" placeholder="新增單位" class="input" style="flex:1;">
+                    <button onclick="addOrganizer()" style="padding:10px 20px;background:#000000;color:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">➕ 新增</button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="deleteCurrentOrganizer()" style="padding:10px 16px;background:#000000;color:white;border-radius:8px;border:none;cursor:pointer;">🗑️ 刪除目前</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">新增課程資訊</h3>
+                <input id="courseTitle" placeholder="課程名稱" class="input" style="margin-bottom:8px;">
+                <textarea id="courseGoal" placeholder="教學目標" class="input" style="margin-bottom:8px;" rows="2"></textarea>
+                <input id="courseHours" placeholder="課程時數" class="input" style="margin-bottom:8px;">
+                <button onclick="saveCourse()" class="btn" style="width:100%;">💾 儲存</button>
+            </div>
+        </div>
+
+        <!-- Sign In Tab -->
+        <div id="signin-content" style="display:none;">
+            <div id="courseDisplay"></div>
+            
+            <!-- 簽到場次管理 -->
+            <div class="card" style="background:#ffffff;border:2px solid #000000;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <h3 style="margin:0;color:#1565c0;">📂 簽到場次</h3>
+                    <button onclick="createNewSession()" class="btn" style="padding:8px 16px;font-size: 30px;background:#000000;">➕ 新增場次</button>
+                </div>
+                <select id="sessionSelect" onchange="loadSession()" class="input" style="margin-bottom:8px;">
+                    <option value="">-- 選擇場次 --</option>
+                </select>
+            </div>
+            
+            <div class="card">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div><label style="font-size: 30px;color:#666;">📅 日期</label><input type="date" id="courseDate" class="input"></div>
+                    <div><label style="font-size: 30px;color:#666;">🕐 時間</label><input type="time" id="courseTime" class="input"></div>
+                </div>
+            </div>
+            
+            <!-- Chrome 風格分頁 -->
+            <div style="display:flex;gap:4px;padding:8px;background:#ffffff;border-radius:8px;margin-bottom:12px;">
+                <button onclick="switchSigninTab('student')" id="signin-tab-student" style="flex:1;padding:12px 16px;border:none;border-radius:6px;cursor:pointer;font-size: 30px;font-weight:bold;background:#000000;color:white;">👥 正式學員</button>
+                <button onclick="switchSigninTab('volunteer')" id="signin-tab-volunteer" style="flex:1;padding:12px 16px;border:none;border-radius:6px;cursor:pointer;font-size: 30px;font-weight:bold;background:#000000;color:#ffffff;">🌟 數位志工</button>
+                <button onclick="switchSigninTab('blank')" id="signin-tab-blank" style="flex:1;padding:12px 16px;border:none;border-radius:6px;cursor:pointer;font-size: 30px;font-weight:bold;background:#000000;color:#ffffff;">📝 空白簽到</button>
+            </div>
+            
+            <!-- 正式學員簽到內容 -->
+            <div id="signin-student-content">
+                <div class="card">
+                    <input id="searchQuery" placeholder="🔍 搜尋..." class="input" style="margin-bottom:8px;" onkeyup="renderStudentList()">
+                    <button onclick="renderStudentList()" class="btn" style="width:100%;margin-bottom:12px;">搜尋</button>
+                </div>
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="margin:0;">📋 簽到名單</h3>
+                        <span id="totalCount">共 0 人</span>
+                    </div>
+                    <div id="studentList"></div>
+                </div>
+            </div>
+            
+            <!-- 數位志工簽到內容 -->
+            <div id="signin-volunteer-content" style="display:none;">
+                <div class="card">
+                    <input id="searchQueryVol" placeholder="🔍 搜尋數位志工..." class="input" style="margin-bottom:8px;" onkeyup="renderVolunteerSigninList()">
+                    <button onclick="renderVolunteerSigninList()" class="btn" style="width:100%;margin-bottom:12px;">搜尋</button>
+                </div>
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="margin:0;">📋 數位志工簽到名單</h3>
+                        <span id="volunteerCount">共 0 人</span>
+                    </div>
+                    <div id="volunteerSigninList"></div>
+                </div>
+            </div>
+            
+            <!-- 空白簽到內容 -->
+            <div id="signin-blank-content" style="display:none;">
+                <div class="card" style="background:#ffffff;border:2px solid #000000;">
+                    <h3 style="margin: 0 0 12px;color:#e65100;">📝 空白簽到（臨時學員）</h3>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                        <input id="blankName" placeholder="姓名" class="input" style="flex:1;min-width:150px;">
+                        <input type="date" id="blankDate" class="input" style="width:auto;">
+                        <input type="time" id="blankTime" class="input" style="width:auto;">
+                        <button onclick="addBlankSignin()" class="btn" style="background:#000000;">➕ 新增</button>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button onclick="clearAllBlank()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除全部</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                        <h3 style="margin:0;color:#e65100;">📋 空白簽到名單</h3>
+                        <span id="blankCount">共 0 人</span>
+                    </div>
+                    <div id="blankList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="stats-content" style="display:none;">
+            <div class="card" style="text-align:center;">
+                <h3 style="margin:0 0 16px;">簽到統計</h3>
+                <div style="display:flex;justify-content:center;gap:20px;font-size: 30px;margin-bottom:16px;">
+                    <div style="background:#ffffff;padding:16px 24px;border-radius:12px;min-width:100px;">
+                        <div style="font-weight:bold;color:#000000;font-size: 30px;" id="statMale">0</div>
+                        <div>男學員</div>
+                    </div>
+                    <div style="background:#fce4ec;padding:16px 24px;border-radius:12px;min-width:100px;">
+                        <div style="font-weight:bold;color:#e91e63;font-size: 30px;" id="statFemale">0</div>
+                        <div>女學員</div>
+                    </div>
+                    <div style="background:#ffffff;padding:16px 24px;border-radius:12px;min-width:100px;">
+                        <div style="font-weight:bold;color:#000000;font-size: 30px;" id="statVolunteer">0</div>
+                        <div>志工管理</div>
+                    </div>
+                </div>
+                <div style="margin-top:8px;font-size: 30px;font-weight:bold;color:#000000;">總計：<span id="statTotal">0</span>人</div>
+            </div>
+        </div>
+
+        <!-- Export Tab -->
+        <div id="export-content" style="display:none;">
+            <div class="card" style="background:#ffffff;border:2px solid #000000;">
+                <h3 style="margin: 0 0 12px;color:#1565c0;">📅 選擇匯出場次</h3>
+                <select id="exportSessionSelect" onchange="loadExportSession()" class="input" style="margin-bottom:8px;">
+                    <option value="">-- 選擇場次 --</option>
+                </select>
+                <div id="exportSessionInfo" style="padding:10px;background:#ffffff;border-radius:8px;"></div>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">📋 正式學員簽到</h3>
+                <button onclick="exportExcel()" class="btn" style="width:100%;margin-bottom:8px;">📊 匯出 Excel</button>
+                <button onclick="previewWithSignatures()" class="btn" style="width:100%;background:#000000;margin-bottom:8px;">👁️ 預覽含簽名</button>
+                <button onclick="renderExportPreview()" class="btn" style="width:100%;background:#000000;">👁️ 預覽簽到名單</button>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">📝 空白簽到表</h3>
+                <button onclick="previewBlankSignins()" class="btn" style="width:100%;background:#000000;margin-bottom:8px;">👁️ 預覽空白簽到</button>
+                <button onclick="exportBlankExcel()" class="btn" style="width:100%;background:#000000;">📊 匯出空白簽到 Excel</button>
+            </div>
+            <div class="card">
+                <h3 style="margin:0 0 12px;">📋 預覽</h3>
+                <div id="previewTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signature Modal -->
+    <div id="sigModal" class="modal">
+        <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:500px;">
+            <h3 id="sigTitle" style="text-align:center;margin:0 0 16px;">簽名</h3>
+            <canvas id="sigCanvas" class="sig-canvas" style="width:100%;height:200px;"></canvas>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">
+                <button onclick="clearSig()" style="padding:10px 20px;background:#000000;color:white;border:none;border-radius:8px;">清除</button>
+                <button onclick="closeSigModal()" style="padding:10px 20px;background:#9e9e9e;color:white;border:none;border-radius:8px;">取消</button>
+                <button onclick="saveSig()" class="btn">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="text-align:center;padding:20px;color:#666;font-size: 30px;">
+        <p>© Hen好玩工作室 2026</p>
+        <p>花蓮市三民街7號</p>
+        <p>開發人員：李國銘 | 電話：03-8328647</p>
+        <p>版本：v0.07 (115.3.6)</p>
+    </footer>
+
+    <script>
+        // Data
+        let students = JSON.parse(localStorage.getItem('s_students') || '[]');
+        students.forEach(s => { if (s.checked === undefined) s.checked = true; });
+        let volunteers = JSON.parse(localStorage.getItem('s_volunteers') || '[]');
+        volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
+        
+        // 簽到場次管理
+        let currentSession = localStorage.getItem('s_currentSession') || new Date().toISOString().slice(0,10);
+        let allSessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+        if(!allSessions.includes(currentSession)) {
+            allSessions.push(currentSession);
+            allSessions.sort().reverse();
+            localStorage.setItem('s_allSessions',JSON.stringify(allSessions));
+        }
+        
+        // 根據場次載入簽到資料
+        let signatures = JSON.parse(localStorage.getItem('s_signatures_' + currentSession) || '{}');
+        let blankSignins = JSON.parse(localStorage.getItem('s_blankSignins_' + currentSession) || '[]');
+        
+        const defaultOrgs = ['花蓮市樂齡學習中心','花蓮縣樂齡學習暨數位示範場域','吉安鄉樂齡學習中心','壽豐鄉樂齡學習中心','鳳林鎮樂齡學習中心','玉里鎮樂齡學習中心','其他'];
+        
+        // Init
+        document.getElementById('courseDate').valueAsDate = new Date();
+        document.getElementById('courseTime').value = new Date().toTimeString().substring(0,5);
+        document.getElementById('blankDate').valueAsDate = new Date();
+        document.getElementById('blankTime').value = new Date().toTimeString().substring(0,5);
+        
+        // 載入場次列表
+        renderSessionSelect();
+        
+        const savedCourse = JSON.parse(localStorage.getItem('s_course') || '{}');
+        if(savedCourse.date) document.getElementById('courseDate').value = savedCourse.date;
+        if(savedCourse.time) document.getElementById('courseTime').value = savedCourse.time;
+        
+        renderAll();
+        // Switch to activity sign-in tab on load
+        setTimeout(function() { switchTab('signin'); }, 50);
+        
+        function renderAll() {
+            renderAdminBtn();
+            loadCourseInfo();
+            renderStudentList();
+            renderManageList();
+            renderVolunteerList();
+            renderBlankList();
+            updateStats();
+            loadExportSession();
+        }
+        
+        // 匯出功能
+        function loadExportSession() {
+            let sel = document.getElementById('exportSessionSelect');
+            if(!sel) return;
+            
+            // 載入場次列表
+            let allSessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+            let currentVal = sel.value;
+            sel.innerHTML = '<option value="">-- 選擇場次 --</option>';
+            allSessions.forEach(s => {
+                let selected = (s === currentVal) ? 'selected' : '';
+                sel.innerHTML += '<option value="'+s+'" '+selected+'>'+s+'</option>';
+            });
+            
+            // 顯示目前場次資訊
+            let info = document.getElementById('exportSessionInfo');
+            if(!info) return;
+            
+            if(currentVal) {
+                // 統計該場次的學員人數
+                let sigs = JSON.parse(localStorage.getItem('s_signatures_' + currentVal) || '{}');
+                let studentCount = 0;
+                let volunteerCount = 0;
+                
+                // 統計學員簽到
+                students.forEach(s => {
+                    if(sigs[s.id]) studentCount++;
+                });
+                
+                // 統計志工簽到
+                volunteers.forEach(v => {
+                    if(sigs[v.id]) volunteerCount++;
+                });
+                
+                let totalCount = studentCount + volunteerCount;
+                
+                info.innerHTML = '<div style="text-align:center;">';
+                info.innerHTML += '<div style="background:#ffffff;padding:10px;border-radius:8px;margin-bottom:8px;">';
+                info.innerHTML += '<strong style="color:#000000;font-size: 30px;">'+currentVal+'</strong></div>';
+                info.innerHTML += '<div style="display:flex;gap:10px;justify-content:center;">';
+                info.innerHTML += '<div style="background:#000000;color:white;padding:10px 20px;border-radius:8px;"><strong>'+studentCount+'</strong><br><small>學員簽到</small></div>';
+                info.innerHTML += '<div style="background:#000000;color:white;padding:10px 20px;border-radius:8px;"><strong>'+volunteerCount+'</strong><br><small>志工簽到</small></div>';
+                info.innerHTML += '</div>';
+                info.innerHTML += '<div style="margin-top:8px;font-size: 30px;"><strong>總計：'+totalCount+' 人</strong></div>';
+                info.innerHTML += '</div>';
+                
+                // 選擇場次後自動更新預覽
+                renderExportPreview();
+            } else {
+                info.innerHTML = '請選擇要匯出的場次';
+            }
+        }
+
+        // Tab
+        function switchTab(tab) {
+            if(['stats','export'].includes(tab) && !isAdmin()) { alert('需管理員登入'); return; }
+            ['students','volunteers','course','signin','stats','export'].forEach(t => {
+                document.getElementById(t+'-content').style.display = 'none';
+                document.getElementById('tab-'+t).classList.remove('active');
+            });
+            document.getElementById(tab+'-content').style.display = 'block';
+            document.getElementById('tab-'+tab).classList.add('active');
+            if(tab === 'stats' || tab === 'export') { updateStats(); renderExportPreview(); }
+        }
+
+        // 簽到場次管理
+        function renderSessionSelect() {
+            let allSessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+            let currentSession = localStorage.getItem('s_currentSession') || new Date().toISOString().slice(0,10);
+            let sel = document.getElementById('sessionSelect');
+            sel.innerHTML = '<option value="">-- 選擇場次 --</option>';
+            allSessions.forEach(s => {
+                let label = s + (s === currentSession ? ' (目前)' : '');
+                sel.innerHTML += '<option value="'+s+'" '+(s === currentSession ? 'selected' : '')+'>'+label+'</option>';
+            });
+        }
+
+        function createNewSession() {
+            let date = prompt('請輸入新場次日期 (YYYY-MM-DD)：', new Date().toISOString().slice(0,10));
+            if(!date) return;
+            let allSessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+            if(allSessions.includes(date)) {
+                alert('此場次已存在！');
+                return;
+            }
+            allSessions.push(date);
+            allSessions.sort().reverse();
+            localStorage.setItem('s_allSessions',JSON.stringify(allSessions));
+            localStorage.setItem('s_currentSession',date);
+            location.reload();
+        }
+
+        function loadSession() {
+            let sel = document.getElementById('sessionSelect');
+            let date = sel.value;
+            if(!date) return;
+            localStorage.setItem('s_currentSession',date);
+            location.reload();
+        }
+
+        function switchSigninTab(type) {
+            // 隱藏全部
+            document.getElementById('signin-student-content').style.display = 'none';
+            document.getElementById('signin-volunteer-content').style.display = 'none';
+            document.getElementById('signin-blank-content').style.display = 'none';
+            // 重置全部按鈕顏色
+            document.getElementById('signin-tab-student').style.background = '#000000';
+            document.getElementById('signin-tab-student').style.color = '#ffffff';
+            document.getElementById('signin-tab-volunteer').style.background = '#000000';
+            document.getElementById('signin-tab-volunteer').style.color = '#ffffff';
+            document.getElementById('signin-tab-blank').style.background = '#000000';
+            document.getElementById('signin-tab-blank').style.color = '#ffffff';
+            
+            // 顯示選中的
+            if(type === 'student') {
+                document.getElementById('signin-student-content').style.display = 'block';
+                document.getElementById('signin-tab-student').style.background = '#000000';
+                document.getElementById('signin-tab-student').style.color = '#ffffff';
+            } else if(type === 'volunteer') {
+                document.getElementById('signin-volunteer-content').style.display = 'block';
+                document.getElementById('signin-tab-volunteer').style.background = '#000000';
+                document.getElementById('signin-tab-volunteer').style.color = '#ffffff';
+                renderVolunteerSigninList();
+            } else {
+                document.getElementById('signin-blank-content').style.display = 'block';
+                document.getElementById('signin-tab-blank').style.background = '#000000';
+                document.getElementById('signin-tab-blank').style.color = '#ffffff';
+            }
+        }
+        
+        function renderVolunteerSigninList() {
+            let query = document.getElementById('searchQueryVol').value.trim().toLowerCase();
+            let list = volunteers.filter(v => v.checked);
+            if(query) list = list.filter(v => v.name.toLowerCase().includes(query));
+            
+            if(list.length === 0) {
+                document.getElementById('volunteerSigninList').innerHTML = '<p style="text-align:center;color:#999;">尚無勾選的數位志工</p>';
+                document.getElementById('volunteerCount').innerText = '共 0 人';
+                return;
+            }
+            
+            let html = '<table style="width:100%;border-collapse:collapse;border:2px solid #000000;border-radius:10px;overflow:hidden;font-size: 30px;">';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">角色</th><th style="padding:14px;text-align:center;">簽到</th></tr>';
+            list.forEach((p,i) => {
+                let sig = signatures[p.id];
+                let bg = sig ? '#ffffff' : '#ffffff';
+                html += '<tr style="background:'+bg+';">';
+                html += '<td style="padding:14px;text-align:center;font-weight:bold;font-size: 30px;">'+(i+1)+'</td>';
+                html += '<td style="padding:14px;font-weight:bold;font-size: 30px;">'+p.name+'</td>';
+                html += '<td style="padding:14px;text-align:center;">'+(p.role||'數位志工')+'</td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:#000000;color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'學員簽到')+'</button></td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+            document.getElementById('volunteerSigninList').innerHTML = html;
+            document.getElementById('volunteerCount').innerText = '共 ' + list.length + ' 人';
+        }
+
+        // Admin
+        const ADMIN_PWD = 'gm1234';
+        function isAdmin() { return localStorage.getItem('s_admin') === 'true'; }
+        function renderAdminBtn() {
+            document.getElementById('adminBtn').innerHTML = isAdmin() 
+                ? '<button onclick="logout()" style="padding:10px 16px;background:#cc0000;color:#ffffff;border:3px solid #000000;border-radius:8px;font-size:24px;font-weight:bold;">登出</button>'
+                : '<button onclick="showLogin()" style="padding:10px 16px;background:#000000;color:#ffffff;border:3px solid #000000;border-radius:8px;font-size:25px;font-weight:bold;">管理登入</button>';
+        }
+        function showLogin() {
+            let pw = prompt('請輸入管理員密碼：');
+            if(pw === ADMIN_PWD) { localStorage.setItem('s_admin','true'); alert('登入成功'); renderAll(); }
+            else if(pw) alert('密碼錯誤');
+        }
+        function logout() { localStorage.removeItem('s_admin'); alert('已登出'); renderAll(); }
+
+        // Student
+        function addStudent() {
+            let name = document.getElementById('newStudentName').value.trim();
+            let gender = document.getElementById('newStudentGender').value;
+            if(!name) { alert('請輸入姓名'); return; }
+            students.push({id:Date.now(), name, gender, checked:true});
+            localStorage.setItem('s_students',JSON.stringify(students));
+            document.getElementById('newStudentName').value = '';
+            renderAll();
+        }
+        function toggleStudent(id) {
+            let s = students.find(x => x.id === id);
+            if(s) { s.checked = !s.checked; localStorage.setItem('s_students',JSON.stringify(students)); renderAll(); }
+        }
+        function deleteStudent(id) {
+            if(!confirm('確定刪除？')) return;
+            students = students.filter(s => s.id !== id);
+            delete signatures[id];
+            localStorage.setItem('s_students',JSON.stringify(students));
+            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+            renderAll();
+        }
+        function clearAllStudents() {
+            if(!confirm('確定清除所有學員？')) return;
+            students = []; signatures = {};
+            localStorage.setItem('s_students',JSON.stringify(students));
+            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+            renderAll();
+        }
+        function loadDemo(n) {
+            const names10 = [{n:'王美華',g:'女'},{n:'陳素雲',g:'女'},{n:'林水木',g:'男'},{n:'黃金土',g:'男'},{n:'李牡丹',g:'女'},{n:'張慶祥',g:'男'},{n:'劉美玲',g:'女'},{n:'羅大文',g:'男'},{n:'吳月娥',g:'女'},{n:'鄭清泉',g:'男'}];
+            const names20 = names10.concat([{n:'孫小萍',g:'女'},{n:'周志明',g:'男'},{n:'錢麗華',g:'女'},{n:'吳建國',g:'男'},{n:'鄭秀英',g:'女'},{n:'王文成',g:'男'},{n:'林月嬌',g:'女'},{n:'黃志偉',g:'男'},{n:'張秀美',g:'女'},{n:'陳建中',g:'男'}]);
+            const names30 = names20.concat([{n:'李美珠',g:'女'},{n:'劉文雄',g:'男'},{n:'黃春蘭',g:'女'},{n:'許光明',g:'男'},{n:'吳彩雲',g:'女'},{n:'鄭國樑',g:'男'},{n:'王素芬',g:'女'},{n:'陳志豪',g:'男'},{n:'林怡君',g:'女'},{n:'張家銘',g:'男'}]);
+            let list = n===20?names20:n===30?names30:names10;
+            let added = 0;
+            list.forEach(d => {
+                if(!students.some(s => s.name === d.n)) {
+                    students.push({id:Date.now()+added, name:d.n, gender:d.g, checked:true});
+                    added++;
+                }
+            });
+            localStorage.setItem('s_students',JSON.stringify(students));
+            renderAll();
+            alert('已載入 ' + added + ' 位');
+        }
+
+        // Volunteer
+        function addVolunteer() {
+            let name = document.getElementById('newVolunteerName').value.trim();
+            let role = document.getElementById('newVolunteerRole').value;
+            if(!name) { alert('請輸入姓名'); return; }
+            volunteers.push({id:Date.now(), name, role, checked:true});
+            localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            document.getElementById('newVolunteerName').value = '';
+            renderAll();
+        }
+        function toggleVolunteer(id) {
+            let v = volunteers.find(x => x.id === id);
+            if(v) { v.checked = !v.checked; localStorage.setItem('s_volunteers',JSON.stringify(volunteers)); renderAll(); }
+        }
+        function clearAllVolunteers() {
+            if(!confirm('確定清除？')) return;
+            volunteers = [];
+            localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            renderAll();
+        }
+        function deleteVolunteer(id) {
+            if(!confirm('確定刪除？')) return;
+            volunteers = volunteers.filter(v => v.id !== id);
+            localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            renderAll();
+        }
+
+        // Course
+        function loadCourseInfo() {
+            let orgs = JSON.parse(localStorage.getItem('s_orgs') || '[]');
+            let allOrgs = [...defaultOrgs, ...orgs].filter((v,i,a)=>a.indexOf(v)===i);
+            let sel = document.getElementById('organizerSelect');
+            sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+            allOrgs.forEach(o => { sel.innerHTML += '<option value="'+o+'">'+o+'</option>'; });
+            
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            document.getElementById('courseTitle').value = course.title || '';
+            document.getElementById('courseGoal').value = course.goal || '';
+            document.getElementById('courseHours').value = course.hours || '';
+            if(course.organizer) sel.value = course.organizer;
+            
+            // 顯示目前選擇的單位
+            showSelectedOrganizer();
+            
+            let disp = document.getElementById('courseDisplay');
+            if(course.organizer || course.title) {
+                disp.innerHTML = '<div class="card" style="background:#ffffff;"><div style="font-weight:bold;color:#000000;">'+course.organizer+'</div>'+(course.title?'<div style="font-weight:bold;color:#000000;">'+course.title+'</div>':'')+(course.goal?'<div style="color:#000000;">'+course.goal+'</div>':'')+(course.hours?'<div style="color:#000000;">'+course.hours+'</div>':'')+'</div>';
+            } else { disp.innerHTML = ''; }
+        }
+        function addOrganizer() {
+            let newOrg = document.getElementById('newOrganizer').value.trim();
+            if(!newOrg) { alert('請輸入'); return; }
+            let orgs = JSON.parse(localStorage.getItem('s_orgs') || '[]');
+            if(!orgs.includes(newOrg)) { orgs.push(newOrg); localStorage.setItem('s_orgs',JSON.stringify(orgs)); }
+            document.getElementById('newOrganizer').value = '';
+            loadCourseInfo();
+        }
+        function deleteCurrentOrganizer() {
+            let sel = document.getElementById('organizerSelect');
+            let currentOrg = sel.value;
+            if(!currentOrg) { alert('請先選擇要刪除的單位'); return; }
+            if(!confirm('確定要刪除「' + currentOrg + '」嗎？')) return;
+            
+            // 從自訂單位列表中移除
+            let orgs = JSON.parse(localStorage.getItem('s_orgs') || '[]');
+            orgs = orgs.filter(o => o !== currentOrg);
+            localStorage.setItem('s_orgs',JSON.stringify(orgs));
+            
+            // 清除目前的選擇
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            if(course.organizer === currentOrg) {
+                course.organizer = '';
+                localStorage.setItem('s_course',JSON.stringify(course));
+            }
+            
+            alert('已刪除');
+            loadCourseInfo();
+        }
+        function showSelectedOrganizer() {
+            let sel = document.getElementById('organizerSelect');
+            let disp = document.getElementById('selectedOrgDisplay');
+            if(sel && disp) {
+                if(sel.value) {
+                    disp.innerHTML = '✅ 目前選擇：' + sel.value;
+                } else {
+                    disp.innerHTML = '請選擇承辦單位';
+                }
+            }
+        }
+        function saveCourse() {
+            let course = {
+                organizer: document.getElementById('organizerSelect').value,
+                title: document.getElementById('courseTitle').value.trim(),
+                goal: document.getElementById('courseGoal').value.trim(),
+                hours: document.getElementById('courseHours').value.trim(),
+                date: document.getElementById('courseDate').value,
+                time: document.getElementById('courseTime').value
+            };
+            if(!course.organizer) { alert('請選擇承辦單位'); return; }
+            localStorage.setItem('s_course',JSON.stringify(course));
+            alert('已儲存');
+            loadCourseInfo();
+        }
+
+        // Render Lists
+        function renderManageList() {
+            if(students.length === 0) {
+                document.getElementById('manageList').innerHTML = '<p style="text-align:center;color:#999;">尚無學員</p>';
+                return;
+            }
+            let html = '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:12px;text-align:center;">號</th><th style="padding:12px;">姓名</th><th style="padding:12px;text-align:center;">性別</th><th style="padding:12px;text-align:center;">勾選</th><th style="padding:12px;text-align:center;">刪除</th></tr>';
+            students.forEach((s,i) => {
+                let bg = s.checked ? '#ffffff' : '#ffffff';
+                html += '<tr style="background:'+bg+';cursor:pointer;" onclick="toggleStudent('+s.id+')">';
+                html += '<td style="padding:16px;text-align:center;font-weight:bold;">'+(i+1)+'</td>';
+                html += '<td style="padding:16px;font-weight:bold;font-size: 30px;">'+s.name+'</td>';
+                html += '<td style="padding:16px;text-align:center;">'+s.gender+'</td>';
+                html += '<td style="padding:16px;text-align:center;"><input type="checkbox" '+(s.checked?'checked':'')+' disabled></td>';
+                html += '<td style="padding:16px;text-align:center;"><button onclick="event.stopPropagation();deleteStudent('+s.id+')" style="padding:8px 16px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">🗑️</button></td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+            document.getElementById('manageList').innerHTML = html;
+        }
+
+        function renderVolunteerList() {
+            let query = document.getElementById('searchVolunteerQuery').value.trim().toLowerCase();
+            let filtered = volunteers;
+            if(query) filtered = volunteers.filter(v => v.name.toLowerCase().includes(query));
+            
+            if(filtered.length === 0) {
+                document.getElementById('volunteerList').innerHTML = '<p style="text-align:center;color:#999;">尚無數位志工</p>';
+                return;
+            }
+            let html = '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:12px;text-align:center;">號</th><th style="padding:12px;">姓名</th><th style="padding:12px;text-align:center;">角色</th><th style="padding:12px;text-align:center;">勾選</th><th style="padding:12px;text-align:center;">刪除</th></tr>';
+            filtered.forEach((v,i) => {
+                let bg = v.checked ? '#ffffff' : '#ffffff';
+                html += '<tr style="background:'+bg+';cursor:pointer;" onclick="toggleVolunteer('+v.id+')">';
+                html += '<td style="padding:16px;text-align:center;font-weight:bold;">'+(i+1)+'</td>';
+                html += '<td style="padding:16px;font-weight:bold;font-size: 30px;">'+v.name+'</td>';
+                html += '<td style="padding:16px;text-align:center;">'+(v.role||'數位志工')+'</td>';
+                html += '<td style="padding:16px;text-align:center;"><input type="checkbox" '+(v.checked?'checked':'')+' disabled></td>';
+                html += '<td style="padding:16px;text-align:center;"><button onclick="event.stopPropagation();deleteVolunteer('+v.id+')" style="padding:8px 16px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">🗑️</button></td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+            document.getElementById('volunteerList').innerHTML = html;
+        }
+
+        function renderStudentList() {
+            let query = document.getElementById('searchQuery').value.trim().toLowerCase();
+            let list = students.filter(s => s.checked);
+            if(query) list = list.filter(p => p.name.toLowerCase().includes(query));
+            
+            if(list.length === 0) {
+                document.getElementById('studentList').innerHTML = '<p style="text-align:center;color:#999;">尚無勾選的學員</p>';
+                document.getElementById('totalCount').innerText = '共 0 人';
+                return;
+            }
+            
+            let html = '<table style="width:100%;border-collapse:collapse;border:2px solid #000000;border-radius:10px;overflow:hidden;font-size: 30px;">';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">性別</th><th style="padding:14px;">簽到</th></tr>';
+            list.forEach((p,i) => {
+                let sig = signatures[p.id];
+                let bg = sig ? '#ffffff' : '#ffffff';
+                html += '<tr style="background:'+bg+';">';
+                html += '<td style="padding:14px;text-align:center;font-weight:bold;font-size: 30px;">'+(i+1)+'</td>';
+                html += '<td style="padding:14px;font-weight:bold;font-size: 30px;">'+p.name+'</td>';
+                html += '<td style="padding:14px;text-align:center;">'+(p.gender||'-')+'</td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:#000000;color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'學員簽到')+'</button></td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+            document.getElementById('studentList').innerHTML = html;
+            document.getElementById('totalCount').innerText = '共 ' + list.length + ' 人';
+        }
+
+        // Stats
+        function updateStats() {
+            let studentList = students.filter(s => s.checked);
+            let volunteerList = volunteers.filter(v => v.checked);
+            let male = 0, female = 0, volunteer = 0;
+            
+            // 統計學員
+            studentList.forEach(s => { 
+                if(signatures[s.id]) { 
+                    if(s.gender === '男') male++; 
+                    else if(s.gender === '女') female++; 
+                } 
+            });
+            
+            // 統計志工
+            volunteerList.forEach(v => { 
+                if(signatures[v.id]) volunteer++; 
+            });
+            
+            document.getElementById('statMale').innerText = male;
+            document.getElementById('statFemale').innerText = female;
+            document.getElementById('statVolunteer').innerText = volunteer;
+            document.getElementById('statTotal').innerText = male + female + volunteer;
+        }
+        function renderExportPreview() {
+            let exportSession = document.getElementById('exportSessionSelect').value;
+            let date = exportSession || currentSession;
+            let exportSig = JSON.parse(localStorage.getItem('s_signatures_' + date) || '{}');
+            
+            let html = '';
+            
+            // 學員區塊
+            let studentList = students.filter(s => s.checked);
+            let studentSigned = 0;
+            studentList.forEach(p => { if(exportSig[p.id]) studentSigned++; });
+            
+            html += '<div style="background:#ffffff;padding:10px;border-radius:8px;margin-bottom:10px;">';
+            html += '<h4 style="margin:0;color:#000000;">學員管理 ('+studentSigned+'人)</h4></div>';
+            html += '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:8px;">#</th><th style="padding:8px;">姓名</th><th style="padding:8px;">性別</th><th style="padding:8px;">簽到</th></tr>';
+            studentList.forEach((p,i) => {
+                let sig = exportSig[p.id];
+                html += '<tr><td style="padding:8px;">'+(i+1)+'</td><td style="padding:8px;">'+p.name+'</td><td style="padding:8px;">'+(p.gender||'-')+'</td><td style="padding:8px;">'+(sig?'✓ '+sig.time:'-')+'</td></tr>';
+            });
+            html += '</table>';
+            
+            // 志工區塊
+            let volunteerList = volunteers.filter(v => v.checked);
+            let volunteerSigned = 0;
+            volunteerList.forEach(p => { if(exportSig[p.id]) volunteerSigned++; });
+            
+            html += '<div style="background:#ffffff;padding:10px;border-radius:8px;margin:10px 0;">';
+            html += '<h4 style="margin:0;color:#000000;">🌟 數位志工 ('+volunteerSigned+'人)</h4></div>';
+            html += '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:8px;">#</th><th style="padding:8px;">姓名</th><th style="padding:8px;">角色</th><th style="padding:8px;">簽到</th></tr>';
+            volunteerList.forEach((p,i) => {
+                let sig = exportSig[p.id];
+                html += '<tr><td style="padding:8px;">'+(i+1)+'</td><td style="padding:8px;">'+p.name+'</td><td style="padding:8px;">'+(p.role||'數位志工')+'</td><td style="padding:8px;">'+(sig?'✓ '+sig.time:'-')+'</td></tr>';
+            });
+            html += '</table>';
+            
+            document.getElementById('previewTable').innerHTML = html;
+        }
+
+        // Signature
+        let sigPad = null, curSigId = null;
+        function openSig(id, name) {
+            curSigId = id;
+            document.getElementById('sigTitle').innerText = name + ' 簽名';
+            document.getElementById('sigModal').classList.add('active');
+            let canvas = document.getElementById('sigCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            sigPad = new SignaturePad(canvas, {backgroundColor:'white', penColor:'black'});
+            if(signatures[id]) sigPad.fromDataURL(signatures[id].dataUrl);
+        }
+        function closeSigModal() { document.getElementById('sigModal').classList.remove('active'); sigPad = null; curSigId = null; }
+        function clearSig() { if(sigPad) sigPad.clear(); }
+        function saveSig() {
+            if(!sigPad || sigPad.isEmpty()) { alert('請先簽名'); return; }
+            let data = sigPad.toDataURL();
+            let time = new Date().toTimeString().substring(0,5);
+            signatures[curSigId] = {dataUrl:data, time:time};
+            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+            closeSigModal();
+            
+            // 判斷目前在哪個分頁，只重新渲染該分頁
+            if(document.getElementById('signin-volunteer-content') && document.getElementById('signin-volunteer-content').style.display === 'block') {
+                renderVolunteerSigninList();
+            } else if(document.getElementById('signin-student-content') && document.getElementById('signin-student-content').style.display === 'block') {
+                renderStudentList();
+            }
+        }
+
+        // Blank Sign In
+        function renderBlankList() {
+            document.getElementById('blankCount').innerText = '共 ' + blankSignins.length + ' 人';
+            if(blankSignins.length === 0) {
+                document.getElementById('blankList').innerHTML = '<p style="text-align:center;color:#999;">尚無空白簽到紀錄</p>';
+                return;
+            }
+            let html = '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:12px;text-align:center;">號</th><th style="padding:12px;">姓名</th><th style="padding:12px;text-align:center;">日期</th><th style="padding:12px;text-align:center;">時間</th><th style="padding:12px;text-align:center;">簽名</th><th style="padding:12px;text-align:center;">刪除</th></tr>';
+            blankSignins.forEach((b,i) => {
+                let sig = b.signature ? true : false;
+                let bg = sig ? '#ffffff' : '#ffffff';
+                html += '<tr style="background:'+bg+';">';
+                html += '<td style="padding:14px;text-align:center;font-weight:bold;">'+(i+1)+'</td>';
+                html += '<td style="padding:14px;font-weight:bold;font-size: 30px;">'+b.name+'</td>';
+                html += '<td style="padding:14px;text-align:center;">'+b.date+'</td>';
+                html += '<td style="padding:14px;text-align:center;">'+b.time+'</td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="openBlankSig('+i+',\''+b.name+'\')" style="padding:8px 16px;background:'+(sig?'#000000':'#000000')+';color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ 已簽名':'✍️ 簽名')+'</button></td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="deleteBlank('+i+')" style="padding:8px 16px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">🗑️</button></td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+            document.getElementById('blankList').innerHTML = html;
+        }
+
+        function addBlankSignin() {
+            let name = document.getElementById('blankName').value.trim();
+            let date = document.getElementById('blankDate').value;
+            let time = document.getElementById('blankTime').value;
+            if(!name) { alert('請輸入姓名'); return; }
+            if(!date) { alert('請選擇日期'); return; }
+            blankSignins.push({name, date, time, signature: null});
+            localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+            document.getElementById('blankName').value = '';
+            renderAll();
+        }
+
+        let curBlankIndex = null;
+        function openBlankSig(index, name) {
+            curBlankIndex = index;
+            document.getElementById('sigTitle').innerText = name + ' 簽名';
+            document.getElementById('sigModal').classList.add('active');
+            let canvas = document.getElementById('sigCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            sigPad = new SignaturePad(canvas, {backgroundColor:'white', penColor:'black'});
+            if(blankSignins[index].signature) sigPad.fromDataURL(blankSignins[index].signature);
+        }
+
+        function deleteBlank(index) {
+            if(!confirm('確定刪除？')) return;
+            blankSignins.splice(index, 1);
+            localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+            renderAll();
+        }
+
+        // Override saveSig to handle blank signins
+        const originalSaveSig = saveSig;
+        saveSig = function() {
+            if(!sigPad || sigPad.isEmpty()) { alert('請先簽名'); return; }
+            let data = sigPad.toDataURL();
+            let time = new Date().toTimeString().substring(0,5);
+            
+            if(curSigId !== null) {
+                // Original student signature
+                signatures[curSigId] = {dataUrl:data, time:time};
+                localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+                closeSigModal();
+                renderAll();
+            } else if(curBlankIndex !== null) {
+                // Blank signin signature
+                blankSignins[curBlankIndex].signature = data;
+                localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+                document.getElementById('sigModal').classList.remove('active');
+                sigPad = null;
+                curBlankIndex = null;
+                renderAll();
+            }
+        }
+
+        function clearAllBlank() {
+            if(!confirm('確定清除全部空白簽到？')) return;
+            blankSignins = [];
+            localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+            renderAll();
+        }
+
+        function previewBlankSignins() {
+            if(blankSignins.length === 0) { alert('尚無空白簽到紀錄'); return; }
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>空白簽到表</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script><style>body{font-family:Noto Sans TC,sans-serif;padding:20px;background:#ffffff}.c{background:white;padding:20px;border-radius:10px;margin-bottom:20px}.t{width:100%;border-collapse:collapse}.t th{background:#000000;color:white;padding:14px;font-size: 25px}.t td{padding:12px;border-bottom:1px solid #ddd;font-size: 25px}</style></head><body>';
+            html += '<div class="c"><h1 style="color:#000000;margin:0;">🌙 空白簽到表</h1>';
+            if(course.organizer) html += '<div>'+course.organizer+'</div>';
+            html += '<div>日期：'+new Date().toLocaleDateString('zh-TW')+'</div></div>';
+            html += '<table class="t"><tr><th style="width:60px;">#</th><th>姓名</th><th style="width:120px;">日期</th><th style="width:100px;">時間</th><th style="width:150px;">簽名</th></tr>';
+            blankSignins.forEach((b,i) => {
+                html += '<tr><td style="text-align:center;font-weight:bold;">'+(i+1)+'</td><td style="font-weight:bold;font-size: 30px;">'+b.name+'</td><td>'+b.date+'</td><td>'+b.time+'</td><td></td></tr>';
+            });
+            html += '</table>';
+            html += '<button onclick="html2canvas(document.body).then(c=>{let l=document.createElement(\'a\');l.download=\'空白簽到表.png\';l.href=c.toDataURL();l.click();})" style="margin:20px;padding:15px 30px;background:#000000;color:white;border:none;border-radius:10px;cursor:pointer;font-size: 30px;">📷 匯出圖片</button>';
+            html += '</body></html>';
+            let w = window.open('','_blank');
+            w.document.write(html);
+            w.document.close();
+        }
+
+        function exportBlankExcel() {
+            if(blankSignins.length === 0) { alert('尚無空白簽到紀錄'); return; }
+            let ws = [['','空白簽到表'],['日期',new Date().toLocaleDateString('zh-TW')],['',''],['編號','姓名','日期','時間','簽名']];
+            blankSignins.forEach((b,i) => {
+                ws.push([i+1, b.name, b.date, b.time, '']);
+            });
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), '空白簽到表');
+            XLSX.writeFile(wb, '空白簽到表_'+new Date().toISOString().slice(0,10)+'.xlsx');
+        }
+
+        // Export
+        function exportExcel() {
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            let exportSession = document.getElementById('exportSessionSelect').value;
+            let date = exportSession || currentSession;
+            
+            // 根據選擇的場次載入簽到資料
+            let exportSig = JSON.parse(localStorage.getItem('s_signatures_' + date) || '{}');
+            
+            let studentList = students.filter(s => s.checked);
+            let volunteerList = volunteers.filter(v => v.checked);
+            
+            let ws = [['','花蓮市樂齡學習中心 簽到表'],['承辦單位',course.organizer||'-'],['課程名稱',course.title||'-'],['日期',date],['','']];
+            
+            // 學員
+            ws.push(['學員管理']);
+            ws.push(['編號','姓名','性別','簽名','時間']);
+            let male=0,female=0,studentSigned=0;
+            studentList.forEach((p,i) => {
+                let sig = exportSig[p.id];
+                if(sig) { 
+                    if(p.gender==='男')male++; 
+                    else if(p.gender==='女')female++; 
+                    studentSigned++;
+                }
+                ws.push([i+1, p.name, p.gender||'-', sig?'✓':'-', sig?sig.time:'-']);
+            });
+            ws.push(['小計',studentSigned,'人']);
+            ws.push(['','']);
+            
+            // 志工
+            ws.push(['🌟 數位志工']);
+            ws.push(['編號','姓名','角色','簽名','時間']);
+            let volunteerSigned=0;
+            volunteerList.forEach((p,i) => {
+                let sig = exportSig[p.id];
+                if(sig) volunteerSigned++;
+                ws.push([i+1, p.name, p.role||'數位志工', sig?'✓':'-', sig?sig.time:'-']);
+            });
+            ws.push(['小計',volunteerSigned,'人']);
+            ws.push(['','']);
+            
+            // 統計
+            ws.push(['簽到統計']);
+            ws.push(['男學員',male,'人']);
+            ws.push(['女學員',female,'人']);
+            ws.push(['學員總計',studentSigned,'人']);
+            ws.push(['志工總計',volunteerSigned,'人']);
+            ws.push(['簽到總計',male+female+volunteerSigned,'人']);
+            
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), '簽到表');
+            XLSX.writeFile(wb, '簽到表_'+date+'.xlsx');
+        }
+        
+        function previewWithSignatures() {
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            let exportSession = document.getElementById('exportSessionSelect').value;
+            let date = exportSession || currentSession;
+            
+            // 根據選擇的場次載入簽到資料
+            let exportSig = JSON.parse(localStorage.getItem('s_signatures_' + date) || '{}');
+            
+            let studentList = students.filter(s => s.checked);
+            let volunteerList = volunteers.filter(v => v.checked);
+            
+            let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>簽到表</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script><style>body{font-family:Noto Sans TC,sans-serif;padding:20px;background:#ffffff}.c{background:white;padding:20px;border-radius:10px;margin-bottom:20px}.t{width:100%;border-collapse:collapse}.t th{background:#000000;color:white;padding:12px}.t td{padding:10px;border-bottom:1px solid #ddd}.sec{background:#ffffff;padding:10px;margin:10px 0;border-radius:8px}.sec2{background:#ffffff;padding:10px;margin:10px 0;border-radius:8px}</style></head><body>';
+            html += '<div class="c"><h1 style="color:#000000;margin:0;">花蓮市樂齡學習中心 簽到表</h1>';
+            if(course.organizer) html += '<div>'+course.organizer+'</div>';
+            if(course.title) html += '<div>'+course.title+'</div>';
+            html += '<div>'+date+'</div></div>';
+            
+            // 學員區塊
+            html += '<div class="sec"><h2 style="color:#000000;margin:0;">學員管理</h2></div>';
+            html += '<table class="t"><tr><th>#</th><th>姓名</th><th>性別</th><th>簽名</th><th>時間</th></tr>';
+            let studentSigned=0;
+            studentList.forEach((p,i) => {
+                let sig = exportSig[p.id];
+                if(sig) studentSigned++;
+                html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.gender||'-')+'</td><td>'+(sig?'<img src="'+sig.dataUrl+'" height="40">':'-')+'</td><td>'+(sig?sig.time:'-')+'</td></tr>';
+            });
+            html += '</table>';
+            html += '<div style="margin:10px 0;font-weight:bold;">學員小計：'+studentSigned+' 人</div>';
+            
+            // 志工區塊
+            html += '<div class="sec2"><h2 style="color:#000000;margin:0;">🌟 數位志工</h2></div>';
+            html += '<table class="t"><tr><th>#</th><th>姓名</th><th>角色</th><th>簽名</th><th>時間</th></tr>';
+            let volunteerSigned=0;
+            volunteerList.forEach((p,i) => {
+                let sig = exportSig[p.id];
+                if(sig) volunteerSigned++;
+                html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.role||'數位志工')+'</td><td>'+(sig?'<img src="'+sig.dataUrl+'" height="40">':'-')+'</td><td>'+(sig?sig.time:'-')+'</td></tr>';
+            });
+            html += '</table>';
+            html += '<div style="margin:10px 0;font-weight:bold;">志工小計：'+volunteerSigned+' 人</div>';
+            
+            html += '<button onclick="html2canvas(document.body).then(c=>{let l=document.createElement(\'a\');l.download=\'簽到表.png\';l.href=c.toDataURL();l.click();})" style="margin:20px;padding:15px 30px;background:#000000;color:white;border:none;border-radius:10px;cursor:pointer;font-size: 30px;">📷 匯出圖片</button>';
+            html += '</body></html>';
+            let w = window.open('','_blank');
+            w.document.write(html);
+            w.document.close();
+        }
+    </script>
+    
+    <!-- PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(reg => console.log('Service Worker registered!', reg))
+                .catch(err => console.log('Service Worker registration failed:', err));
+        }
+    </script>
+</body>
+</html>

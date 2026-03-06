@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>樂齡學習中心 AI 簽到系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Noto Sans TC', sans-serif; background: linear-gradient(180deg, #06C755 0%, #f0fdf4 30%); min-height: 100vh; margin: 0; }
+        .btn { background: linear-gradient(135deg, #06C755, #05B54D); color: white; padding: 12px 24px; border-radius: 12px; border: none; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn:hover { opacity: 0.9; }
+        .card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .tab { padding: 10px 16px; border-radius: 20px; background: rgba(255,255,255,0.3); border: none; cursor: pointer; font-size: 14px; font-weight: bold; white-space: nowrap; }
+        .tab.active { background: #06C755; color: white; }
+        .input { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; width: 100%; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .sig-canvas { border: 3px dashed #06C755; border-radius: 12px; background: white; touch-action: none; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #06C755, #05B54D); padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="color: white; margin: 0; font-size: 20px;">AI 智慧簽到系統</h1>
+        <div id="adminBtn"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div style="padding: 12px; display: flex; gap: 8px; overflow-x: auto; flex-wrap: wrap;">
+        <button class="tab active" onclick="switchTab('students')" id="tab-students">👥 學員</button>
+        <button class="tab" onclick="switchTab('volunteers')" id="tab-volunteers">🌟 志工</button>
+        <button class="tab" onclick="switchTab('course')" id="tab-course">📚 課程</button>
+        <button class="tab" onclick="switchTab('signin')" id="tab-signin">✍️ 簽到</button>
+        <button class="tab" onclick="switchTab('stats')" id="tab-stats">📊 統計</button>
+        <button class="tab" onclick="switchTab('export')" id="tab-export">📥 匯出</button>
+    </div>
+
+    <!-- Content -->
+    <div style="padding: 12px; max-width: 800px; margin: 0 auto;">
+        
+        <!-- Students Tab -->
+        <div id="students-content">
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">➕ 新增學員</h3>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                    <input id="newStudentName" placeholder="姓名" class="input" style="flex:1;min-width:150px;">
+                    <select id="newStudentGender" class="input" style="width:auto;">
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                    </select>
+                    <button onclick="addStudent()" class="btn">➕ 新增</button>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button onclick="loadDemo(10)" style="padding:8px 16px;background:#e8f5e9;border-radius:8px;border:none;cursor:pointer;">📦 10人</button>
+                    <button onclick="loadDemo(20)" style="padding:8px 16px;background:#e8f5e9;border-radius:8px;border:none;cursor:pointer;">📦 20人</button>
+                    <button onclick="loadDemo(30)" style="padding:8px 16px;background:#e8f5e9;border-radius:8px;border:none;cursor:pointer;">📦 30人</button>
+                    <button onclick="clearAllStudents()" style="padding:8px 16px;background:#ffebee;border-radius:8px;border:none;cursor:pointer;">🗑️ 清除</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">👥 學員列表（勾選列入簽到）</h3>
+                <div id="manageList"></div>
+            </div>
+        </div>
+
+        <!-- Volunteers Tab -->
+        <div id="volunteers-content" style="display:none;">
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">➕ 新增志工</h3>
+                <div style="display: flex; gap: 8px;">
+                    <input id="newVolunteerName" placeholder="志工姓名" class="input" style="flex:1;">
+                    <button onclick="addVolunteer()" class="btn">➕ 新增</button>
+                    <button onclick="clearAllVolunteers()" style="padding:10px 16px;background:#ffebee;border-radius:8px;border:none;cursor:pointer;">清除</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">🌟 志工列表</h3>
+                <div id="volunteerList"></div>
+            </div>
+        </div>
+
+        <!-- Course Tab -->
+        <div id="course-content" style="display:none;">
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">🏢 承辦單位</h3>
+                <select id="organizerSelect" onchange="loadCourseInfo()" class="input" style="margin-bottom:8px;"></select>
+                <div style="display: flex; gap: 8px;">
+                    <input id="newOrganizer" placeholder="新增單位" class="input" style="flex:1;">
+                    <button onclick="addOrganizer()" style="padding:10px 16px;background:#06C755;color:white;border-radius:8px;border:none;cursor:pointer;">➕</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3 style="margin: 0 0 12px;">📚 課程資訊</h3>
+                <input id="courseTitle" placeholder="課程名稱" class="input" style="margin-bottom:8px;">
+                <textarea id="courseGoal" placeholder="教學目標" class="input" style="margin-bottom:8px;" rows="2"></textarea>
+                <input id="courseHours" placeholder="課程時數" class="input" style="margin-bottom:8px;">
+                <button onclick="saveCourse()" class="btn" style="width:100%;">💾 儲存</button>
+            </div>
+        </div>
+
+        <!-- Sign In Tab -->
+        <div id="signin-content" style="display:none;">
+            <div id="courseDisplay"></div>
+            <div class="card">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                    <div><label style="font-size:12px;color:#666;">📅 日期</label><input type="date" id="courseDate" class="input"></div>
+                    <div><label style="font-size:12px;color:#666;">🕐 時間</label><input type="time" id="courseTime" class="input"></div>
+                </div>
+            </div>
+            <div class="card">
+                <input id="searchQuery" placeholder="🔍 搜尋..." class="input" style="margin-bottom:8px;" onkeyup="renderStudentList()">
+                <button onclick="renderStudentList()" class="btn" style="width:100%;margin-bottom:12px;">搜尋</button>
+            </div>
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+                    <h3 style="margin:0;">📋 簽到名單</h3>
+                    <span id="totalCount">共 0 人</span>
+                </div>
+                <div id="studentList"></div>
+            </div>
+        </div>
+
+        <!-- Stats Tab -->
+        <div id="stats-content" style="display:none;">
+            <div class="card" style="text-align:center;">
+                <h3 style="margin:0 0 16px;">📊 統計</h3>
+                <div style="display:flex;justify-content:center;gap:40px;font-size:24px;">
+                    <div><div id="statMale" style="font-weight:bold;color:#06C755;">0</div><div>男</div></div>
+                    <div>:</div>
+                    <div><div id="statFemale" style="font-weight:bold;color:#06C755;">0</div><div>女</div></div>
+                </div>
+                <div style="margin-top:16px;font-size:20px;font-weight:bold;color:#06C755;">總計：<span id="statTotal">0</span>人</div>
+            </div>
+        </div>
+
+        <!-- Export Tab -->
+        <div id="export-content" style="display:none;">
+            <div class="card">
+                <button onclick="exportExcel()" class="btn" style="width:100%;margin-bottom:8px;">📊 匯出 Excel</button>
+                <button onclick="previewWithSignatures()" class="btn" style="width:100%;background:#1976d2;">👁️ 預覽含簽名</button>
+            </div>
+            <div class="card">
+                <h3 style="margin:0 0 12px;">📋 預覽</h3>
+                <div id="previewTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signature Modal -->
+    <div id="sigModal" class="modal">
+        <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:500px;">
+            <h3 id="sigTitle" style="text-align:center;margin:0 0 16px;">簽名</h3>
+            <canvas id="sigCanvas" class="sig-canvas" style="width:100%;height:200px;"></canvas>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;">
+                <button onclick="clearSig()" style="padding:10px 20px;background:#f44336;color:white;border:none;border-radius:8px;">清除</button>
+                <button onclick="closeSigModal()" style="padding:10px 20px;background:#9e9e9e;color:white;border:none;border-radius:8px;">取消</button>
+                <button onclick="saveSig()" class="btn">確認</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer style="text-align:center;padding:20px;color:#666;font-size:14px;">
+        <p>© 2026 花蓮縣花蓮市樂齡學習中心</p>
+        <p>開發人員：GM | 電話：03-8328647</p>
+        <p>版本：v0.01</p>
+    </footer>
+
+    <script>
+        // Data
+        let students = JSON.parse(localStorage.getItem('s_students') || '[]');
+        students.forEach(s => { if (s.checked === undefined) s.checked = true; });
+        let volunteers = JSON.parse(localStorage.getItem('s_volunteers') || '[]');
+        volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
+        let signatures = JSON.parse(localStorage.getItem('s_signatures') || '{}');
+        const defaultOrgs = ['花蓮市樂齡學習中心','吉安鄉樂齡學習中心','壽豐鄉樂齡學習中心','鳳林鎮樂齡學習中心','玉里鎮樂齡學習中心','其他'];
+        
+        // Init
+        document.getElementById('courseDate').valueAsDate = new Date();
+        document.getElementById('courseTime').value = new Date().toTimeString().substring(0,5);
+        
+        const savedCourse = JSON.parse(localStorage.getItem('s_course') || '{}');
+        if(savedCourse.date) document.getElementById('courseDate').value = savedCourse.date;
+        if(savedCourse.time) document.getElementById('courseTime').value = savedCourse.time;
+        
+        renderAll();
+        
+        function renderAll() {
+            renderAdminBtn();
+            loadCourseInfo();
+            renderStudentList();
+            renderManageList();
+            renderVolunteerList();
+            updateStats();
+        }
+
+        // Tab
+        function switchTab(tab) {
+            if(['course','stats','export'].includes(tab) && !isAdmin()) { alert('需管理員登入'); return; }
+            ['students','volunteers','course','signin','stats','export'].forEach(t => {
+                document.getElementById(t+'-content').style.display = 'none';
+                document.getElementById('tab-'+t).classList.remove('active');
+            });
+            document.getElementById(tab+'-content').style.display = 'block';
+            document.getElementById('tab-'+tab).classList.add('active');
+            if(tab === 'stats' || tab === 'export') { updateStats(); renderExportPreview(); }
+        }
+
+        // Admin
+        const ADMIN_PWD = 'gm1234';
+        function isAdmin() { return localStorage.getItem('s_admin') === 'true'; }
+        function renderAdminBtn() {
+            document.getElementById('adminBtn').innerHTML = isAdmin() 
+                ? '<button onclick="logout()" style="padding:6px 12px;background:#f44336;color:white;border:none;border-radius:6px;">登出</button>'
+                : '<button onclick="showLogin()" style="padding:6px 12px;background:#ffc107;color:#333;border:none;border-radius:6px;">管理登入</button>';
+        }
+        function showLogin() {
+            let pw = prompt('請輸入管理員密碼：');
+            if(pw === ADMIN_PWD) { localStorage.setItem('s_admin','true'); alert('登入成功'); renderAll(); }
+            else if(pw) alert('密碼錯誤');
+        }
+        function logout() { localStorage.removeItem('s_admin'); alert('已登出'); renderAll(); }
+
+        // Student
+        function addStudent() {
+            let name = document.getElementById('newStudentName').value.trim();
+            let gender = document.getElementById('newStudentGender').value;
+            if(!name) { alert('請輸入姓名'); return; }
+            students.push({id:Date.now(), name, gender, checked:true});
+            localStorage.setItem('s_students',JSON.stringify(students));
+            document.getElementById('newStudentName').value = '';
+            renderAll();
+        }
+        function toggleStudent(id) {
+            let s = students.find(x => x.id === id);
+            if(s) { s.checked = !s.checked; localStorage.setItem('s_students',JSON.stringify(students)); renderAll(); }
+        }
+        function deleteStudent(id) {
+            if(!confirm('確定刪除？')) return;
+            students = students.filter(s => s.id !== id);
+            delete signatures[id];
+            localStorage.setItem('s_students',JSON.stringify(students));
+            localStorage.setItem('s_signatures',JSON.stringify(signatures));
+            renderAll();
+        }
+        function clearAllStudents() {
+            if(!confirm('確定清除所有學員？')) return;
+            students = []; signatures = {};
+            localStorage.setItem('s_students',JSON.stringify(students));
+            localStorage.setItem('s_signatures',JSON.stringify(signatures));
+            renderAll();
+        }
+        function loadDemo(n) {
+            const names10 = [{n:'王美華',g:'女'},{n:'陳素雲',g:'女'},{n:'林水木',g:'男'},{n:'黃金土',g:'男'},{n:'李牡丹',g:'女'},{n:'張慶祥',g:'男'},{n:'劉美玲',g:'女'},{n:'羅大文',g:'男'},{n:'吳月娥',g:'女'},{n:'鄭清泉',g:'男'}];
+            const names20 = names10.concat([{n:'孫小萍',g:'女'},{n:'周志明',g:'男'},{n:'錢麗華',g:'女'},{n:'吳建國',g:'男'},{n:'鄭秀英',g:'女'},{n:'王文成',g:'男'},{n:'林月嬌',g:'女'},{n:'黃志偉',g:'男'},{n:'張秀美',g:'女'},{n:'陳建中',g:'男'}]);
+            const names30 = names20.concat([{n:'李美珠',g:'女'},{n:'劉文雄',g:'男'},{n:'黃春蘭',g:'女'},{n:'許光明',g:'男'},{n:'吳彩雲',g:'女'},{n:'鄭國樑',g:'男'},{n:'王素芬',g:'女'},{n:'陳志豪',g:'男'},{n:'林怡君',g:'女'},{n:'張家銘',g:'男'}]);
+            let list = n===20?names20:n===30?names30:names10;
+            let added = 0;
+            list.forEach(d => {
+                if(!students.some(s => s.name === d.n)) {
+                    students.push({id:Date.now()+added, name:d.n, gender:d.g, checked:true});
+                    added++;
+                }
+            });
+            localStorage.setItem('s_students',JSON.stringify(students));
+            renderAll();
+            alert('已載入 ' + added + ' 位');
+        }
+
+        // Volunteer
+        function addVolunteer() {
+            let name = document.getElementById('newVolunteerName').value.trim();
+            if(!name) { alert('請輸入姓名'); return; }
+            volunteers.push({id:Date.now(), name, checked:true});
+            localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            document.getElementById('newVolunteerName').value = '';
+            renderAll();
+        }
+        function toggleVolunteer(id) {
+            let v = volunteers.find(x => x.id === id);
+            if(v) { v.checked = !v.checked; localStorage.setItem('s_volunteers',JSON.stringify(volunteers)); renderAll(); }
+        }
+        function clearAllVolunteers() {
+            if(!confirm('確定清除？')) return;
+            volunteers = [];
+            localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            renderAll();
+        }
+
+        // Course
+        function loadCourseInfo() {
+            let orgs = JSON.parse(localStorage.getItem('s_orgs') || '[]');
+            let allOrgs = [...defaultOrgs, ...orgs].filter((v,i,a)=>a.indexOf(v)===i);
+            let sel = document.getElementById('organizerSelect');
+            sel.innerHTML = '<option value="">-- 請選擇 --</option>';
+            allOrgs.forEach(o => { sel.innerHTML += '<option value="'+o+'">'+o+'</option>'; });
+            
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            document.getElementById('courseTitle').value = course.title || '';
+            document.getElementById('courseGoal').value = course.goal || '';
+            document.getElementById('courseHours').value = course.hours || '';
+            if(course.organizer) sel.value = course.organizer;
+            
+            let disp = document.getElementById('courseDisplay');
+            if(course.organizer || course.title) {
+                disp.innerHTML = '<div class="card" style="background:#e8f5e9;"><div style="font-weight:bold;color:#2e7d32;">'+course.organizer+'</div>'+(course.title?'<div style="font-weight:bold;color:#388e3c;">'+course.title+'</div>':'')+(course.goal?'<div style="color:#43a047;">'+course.goal+'</div>':'')+(course.hours?'<div style="color:#43a047;">'+course.hours+'</div>':'')+'</div>';
+            } else { disp.innerHTML = ''; }
+        }
+        function addOrganizer() {
+            let newOrg = document.getElementById('newOrganizer').value.trim();
+            if(!newOrg) { alert('請輸入'); return; }
+            let orgs = JSON.parse(localStorage.getItem('s_orgs') || '[]');
+            if(!orgs.includes(newOrg)) { orgs.push(newOrg); localStorage.setItem('s_orgs',JSON.stringify(orgs)); }
+            document.getElementById('newOrganizer').value = '';
+            loadCourseInfo();
+        }
+        function saveCourse() {
+            let course = {
+                organizer: document.getElementById('organizerSelect').value,
+                title: document.getElementById('courseTitle').value.trim(),
+                goal: document.getElementById('courseGoal').value.trim(),
+                hours: document.getElementById('courseHours').value.trim(),
+                date: document.getElementById('courseDate').value,
+                time: document.getElementById('courseTime').value
+            };
+            if(!course.organizer) { alert('請選擇承辦單位'); return; }
+            localStorage.setItem('s_course',JSON.stringify(course));
+            alert('已儲存');
+            loadCourseInfo();
+        }
+
+        // Render Lists
+        function renderManageList() {
+            let html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
+            students.forEach(s => {
+                html += '<div style="padding:12px;border:2px solid #06C755;border-radius:10px;text-align:center;background:'+(s.checked?'#c8e6c9':'#f5f5f5')+';cursor:pointer;" onclick="toggleStudent('+s.id+')">';
+                html += '<input type="checkbox" '+(s.checked?'checked':'')+' disabled> <strong>'+s.name+'</strong><br><span style="font-size:12px;color:#666;">'+s.gender+'</span><br><button onclick="event.stopPropagation();deleteStudent('+s.id+')" style="padding:4px 8px;background:#ffcdd2;color:#c62828;border:none;border-radius:4px;cursor:pointer;margin-top:4px;">刪除</button>';
+                html += '</div>';
+            });
+            html += '</div>';
+            document.getElementById('manageList').innerHTML = html || '<p style="text-align:center;color:#999;">尚無學員</p>';
+        }
+
+        function renderVolunteerList() {
+            let html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">';
+            volunteers.forEach(v => {
+                html += '<div style="padding:12px;border:2px solid #06C755;border-radius:10px;text-align:center;background:'+(v.checked?'#c8e6c9':'#f5f5f5')+';cursor:pointer;" onclick="toggleVolunteer('+v.id+')">';
+                html += '<input type="checkbox" '+(v.checked?'checked':'')+' disabled> <strong>'+v.name+'</strong>';
+                html += '</div>';
+            });
+            html += '</div>';
+            document.getElementById('volunteerList').innerHTML = html || '<p style="text-align:center;color:#999;">尚無志工</p>';
+        }
+
+        function renderStudentList() {
+            let query = document.getElementById('searchQuery').value.trim().toLowerCase();
+            let list = [...students.filter(s => s.checked), ...volunteers.filter(v => v.checked)];
+            if(query) list = list.filter(p => p.name.toLowerCase().includes(query));
+            
+            if(list.length === 0) {
+                document.getElementById('studentList').innerHTML = '<p style="text-align:center;color:#999;">尚無勾選的學員或志工</p>';
+                document.getElementById('totalCount').innerText = '共 0 人';
+                return;
+            }
+            
+            let html = '<table style="width:100%;border-collapse:collapse;border:2px solid #06C755;border-radius:10px;overflow:hidden;">';
+            html += '<tr style="background:#06C755;color:white;"><th style="padding:10px;">號</th><th style="padding:10px;">姓名</th><th style="padding:10px;">性別</th><th style="padding:10px;">簽到</th></tr>';
+            list.forEach((p,i) => {
+                let sig = signatures[p.id];
+                let bg = sig ? '#c8e6c9' : '#fff';
+                html += '<tr style="background:'+bg+';">';
+                html += '<td style="padding:10px;text-align:center;font-weight:bold;">'+(i+1)+'</td>';
+                html += '<td style="padding:10px;font-weight:bold;">'+p.name+'</td>';
+                html += '<td style="padding:10px;text-align:center;">'+(p.gender||'志工')+'</td>';
+                html += '<td style="padding:10px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:8px 16px;background:#06C755;color:white;border:none;border-radius:6px;cursor:pointer;">'+(sig?'✓ '+sig.time:'✍️ 簽到')+'</button></td>';
+                html += '</tr>';
+            });
+            html += '</table>';
+            document.getElementById('studentList').innerHTML = html;
+            document.getElementById('totalCount').innerText = '共 ' + list.length + ' 人';
+        }
+
+        // Stats
+        function updateStats() {
+            let list = [...students.filter(s => s.checked), ...volunteers.filter(v => v.checked)];
+            let male = 0, female = 0;
+            list.forEach(p => { if(signatures[p.id]) { if(p.gender === '男') male++; else if(p.gender === '女') female++; } });
+            document.getElementById('statMale').innerText = male;
+            document.getElementById('statFemale').innerText = female;
+            document.getElementById('statTotal').innerText = male + female;
+        }
+        function renderExportPreview() { renderStudentList(); document.getElementById('previewTable').innerHTML = document.getElementById('studentList').innerHTML; }
+
+        // Signature
+        let sigPad = null, curSigId = null;
+        function openSig(id, name) {
+            curSigId = id;
+            document.getElementById('sigTitle').innerText = name + ' 簽名';
+            document.getElementById('sigModal').classList.add('active');
+            let canvas = document.getElementById('sigCanvas');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            sigPad = new SignaturePad(canvas, {backgroundColor:'white', penColor:'black'});
+            if(signatures[id]) sigPad.fromDataURL(signatures[id].dataUrl);
+        }
+        function closeSigModal() { document.getElementById('sigModal').classList.remove('active'); sigPad = null; curSigId = null; }
+        function clearSig() { if(sigPad) sigPad.clear(); }
+        function saveSig() {
+            if(!sigPad || sigPad.isEmpty()) { alert('請先簽名'); return; }
+            let data = sigPad.toDataURL();
+            let time = new Date().toTimeString().substring(0,5);
+            signatures[curSigId] = {dataUrl:data, time:time};
+            localStorage.setItem('s_signatures',JSON.stringify(signatures));
+            closeSigModal();
+            renderAll();
+        }
+
+        // Export
+        function exportExcel() {
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            let date = document.getElementById('courseDate').value;
+            let list = [...students.filter(s => s.checked), ...volunteers.filter(v => v.checked)];
+            let ws = [['','花蓮市樂齡學習中心 簽到表'],['承辦單位',course.organizer||'-'],['課程名稱',course.title||'-'],['日期',date],['',''],['編號','姓名','性別','簽名','時間']];
+            let male=0,female=0;
+            list.forEach((p,i) => {
+                let sig = signatures[p.id];
+                if(sig) { if(p.gender==='男')male++; else if(p.gender==='女')female++; }
+                ws.push([i+1, p.name, p.gender||'志工', sig?'✓':'-', sig?sig.time:'-']);
+            });
+            ws.push(['',''],['男',male,'人'],['女',female,'人'],['總計',male+female,'人']);
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ws), '簽到表');
+            XLSX.writeFile(wb, '簽到表_'+date+'.xlsx');
+        }
+        
+        function previewWithSignatures() {
+            let course = JSON.parse(localStorage.getItem('s_course') || '{}');
+            let date = document.getElementById('courseDate').value;
+            let list = [...students.filter(s => s.checked), ...volunteers.filter(v => v.checked)];
+            let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>簽到表</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script><style>body{font-family:Noto Sans TC,sans-serif;padding:20px;background:#f5f5f5}.c{background:white;padding:20px;border-radius:10px;margin-bottom:20px}.t{width:100%;border-collapse:collapse}.t th{background:#06C755;color:white;padding:12px}.t td{padding:10px;border-bottom:1px solid #ddd}</style></head><body>';
+            html += '<div class="c"><h1 style="color:#06C755;margin:0;">花蓮市樂齡學習中心 簽到表</h1>';
+            if(course.organizer) html += '<div>'+course.organizer+'</div>';
+            if(course.title) html += '<div>'+course.title+'</div>';
+            html += '<div>'+date+'</div></div>';
+            html += '<table class="t"><tr><th>#</th><th>姓名</th><th>性別</th><th>簽名</th><th>時間</th></tr>';
+            list.forEach((p,i) => {
+                let sig = signatures[p.id];
+                html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.gender||'志工')+'</td><td>'+(sig?'<img src="'+sig.dataUrl+'" height="40">':'-')+'</td><td>'+(sig?sig.time:'-')+'</td></tr>';
+            });
+            html += '</table>';
+            html += '<button onclick="html2canvas(document.body).then(c=>{let l=document.createElement(\'a\');l.download=\'簽到表.png\';l.href=c.toDataURL();l.click();})" style="margin:20px;padding:15px 30px;background:#06C755;color:white;border:none;border-radius:10px;cursor:pointer;font-size:16px;">📷 匯出圖片</button>';
+            html += '</body></html>';
+            let w = window.open('','_blank');
+            w.document.write(html);
+            w.document.close();
+        }
+    </script>
+</body>
+</html>
