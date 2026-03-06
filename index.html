@@ -402,7 +402,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.08 (115.3.6) - 密碼保護</p>
+        <p>版本：v0.09 (115.3.6) - 承辦單位簡化</p>
     </footer>
 
     <script>
@@ -441,7 +441,7 @@
         let signatures = JSON.parse(localStorage.getItem('s_signatures_' + currentSession) || '{}');
         let blankSignins = JSON.parse(localStorage.getItem('s_blankSignins_' + currentSession) || '[]');
         
-        const defaultOrgs = ['花蓮市樂齡學習中心','花蓮縣樂齡學習暨數位示範場域','吉安鄉樂齡學習中心','壽豐鄉樂齡學習中心','鳳林鎮樂齡學習中心','玉里鎮樂齡學習中心','其他'];
+        const defaultOrgs = ['花蓮市樂齡學習中心'];
         
         // Init
         document.getElementById('courseDate').valueAsDate = new Date();
