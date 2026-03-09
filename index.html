@@ -403,7 +403,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.13 (115.3.9) - 修復簽到名單只顯示已勾選學員</p>
+        <p>版本：v0.14 (115.3.9) - 簽名置中顯示</p>
     </footer>
 
     <script>
@@ -1251,7 +1251,7 @@
                 if(sig) studentSigned++;
                 if(leave) studentLeave++;
                 let status = leave ? '<span style="color:#ff9800;font-weight:bold;">請假</span>' : (sig ? '<span style="color:#4caf50;font-weight:bold;">簽到</span>' : '-');
-                let sigOrLeave = leave ? (leave.time||'-') : (sig ? '<img src="'+sig.dataUrl+'" height="40">' : '-');
+                let sigOrLeave = leave ? (leave.time||'-') : (sig ? '<img src="'+sig.dataUrl+'" height="40" style="display:block;margin:0 auto;">' : '-');
                 html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.gender||'-')+'</td><td>'+status+'</td><td>'+sigOrLeave+'</td></tr>';
             });
             html += '</table>';
@@ -1267,7 +1267,7 @@
                 if(sig) volunteerSigned++;
                 if(leave) volunteerLeave++;
                 let status = leave ? '<span style="color:#ff9800;font-weight:bold;">請假</span>' : (sig ? '<span style="color:#4caf50;font-weight:bold;">簽到</span>' : '-');
-                let sigOrLeave = leave ? (leave.time||'-') : (sig ? '<img src="'+sig.dataUrl+'" height="40">' : '-');
+                let sigOrLeave = leave ? (leave.time||'-') : (sig ? '<img src="'+sig.dataUrl+'" height="40" style="display:block;margin:0 auto;">' : '-');
                 html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.role||'數位志工')+'</td><td>'+status+'</td><td>'+sigOrLeave+'</td></tr>';
             });
             html += '</table>';
