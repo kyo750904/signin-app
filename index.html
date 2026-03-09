@@ -403,7 +403,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.10 (115.3.9) - 新增請假功能</p>
+        <p>版本：v0.11 (115.3.9) - 數位志工新增請假功能</p>
     </footer>
 
     <script>
@@ -441,6 +441,7 @@
         // 根據場次載入簽到資料
         let signatures = JSON.parse(localStorage.getItem('s_signatures_' + currentSession) || '{}');
         let leaves = JSON.parse(localStorage.getItem('s_leaves_' + currentSession) || '{}');
+        let volunteerLeaves = JSON.parse(localStorage.getItem('s_volunteerLeaves_' + currentSession) || '{}');
         let blankSignins = JSON.parse(localStorage.getItem('s_blankSignins_' + currentSession) || '[]');
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
@@ -605,30 +606,49 @@
         
         function renderVolunteerSigninList() {
             let query = document.getElementById('searchQueryVol').value.trim().toLowerCase();
-            let list = volunteers.filter(v => v.checked);
+            let list = volunteers;
             if(query) list = list.filter(v => v.name.toLowerCase().includes(query));
             
             if(list.length === 0) {
-                document.getElementById('volunteerSigninList').innerHTML = '<p style="text-align:center;color:#999;">尚無勾選的數位志工</p>';
+                document.getElementById('volunteerSigninList').innerHTML = '<p style="text-align:center;color:#999;">尚無數位志工</p>';
                 document.getElementById('volunteerCount').innerText = '共 0 人';
                 return;
             }
             
             let html = '<table style="width:100%;border-collapse:collapse;border:2px solid #000000;border-radius:10px;overflow:hidden;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">角色</th><th style="padding:14px;text-align:center;">簽到</th></tr>';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">角色</th><th style="padding:14px;text-align:center;">請假</th><th style="padding:14px;text-align:center;">簽到</th></tr>';
             list.forEach((p,i) => {
                 let sig = signatures[p.id];
-                let bg = sig ? '#ffffff' : '#ffffff';
+                let leave = volunteerLeaves[p.id];
+                let bg = sig ? '#e8f5e9' : (leave ? '#fff3e0' : '#ffffff');
                 html += '<tr style="background:'+bg+';">';
                 html += '<td style="padding:14px;text-align:center;font-weight:bold;font-size: 30px;">'+(i+1)+'</td>';
                 html += '<td style="padding:14px;font-weight:bold;font-size: 30px;">'+p.name+'</td>';
                 html += '<td style="padding:14px;text-align:center;">'+(p.role||'數位志工')+'</td>';
-                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:#000000;color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'學員簽到')+'</button></td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="toggleVolunteerLeave('+p.id+')" style="padding:10px 20px;background:'+(leave?'#ff9800':'#ffffff')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size: 30px;font-weight:bold;">'+(leave?'✓ 請假':'請假')+'</button></td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:'+(sig?'#4caf50':'#000000')+';color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'志工簽到')+'</button></td>';
                 html += '</tr>';
             });
             html += '</table>';
             document.getElementById('volunteerSigninList').innerHTML = html;
-            document.getElementById('volunteerCount').innerText = '共 ' + list.length + ' 人';
+            let signedCount = Object.keys(signatures).filter(k => volunteers.some(v => v.id == k)).length;
+            let leaveCount = Object.keys(volunteerLeaves).length;
+            document.getElementById('volunteerCount').innerText = '簽到 ' + signedCount + ' / 請假 ' + leaveCount + ' / 共 ' + list.length + ' 人';
+        }
+        
+        function toggleVolunteerLeave(id) {
+            if(volunteerLeaves[id]) {
+                delete volunteerLeaves[id];
+            } else {
+                volunteerLeaves[id] = {time: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})};
+                if(signatures[id]) {
+                    delete signatures[id];
+                    localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(signatures));
+                }
+            }
+            localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(volunteerLeaves));
+            renderVolunteerSigninList();
+            updateStats();
         }
 
         // Admin
