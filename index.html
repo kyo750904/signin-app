@@ -403,7 +403,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.09 (115.3.6) - 承辦單位簡化</p>
+        <p>版本：v0.10 (115.3.9) - 新增請假功能</p>
     </footer>
 
     <script>
@@ -440,6 +440,7 @@
         
         // 根據場次載入簽到資料
         let signatures = JSON.parse(localStorage.getItem('s_signatures_' + currentSession) || '{}');
+        let leaves = JSON.parse(localStorage.getItem('s_leaves_' + currentSession) || '{}');
         let blankSignins = JSON.parse(localStorage.getItem('s_blankSignins_' + currentSession) || '[]');
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
@@ -861,44 +862,69 @@
 
         function renderStudentList() {
             let query = document.getElementById('searchQuery').value.trim().toLowerCase();
-            let list = students.filter(s => s.checked);
+            // 顯示所有學員（包含未勾選），讓使用者可以選擇
+            let list = students;
             if(query) list = list.filter(p => p.name.toLowerCase().includes(query));
             
             if(list.length === 0) {
-                document.getElementById('studentList').innerHTML = '<p style="text-align:center;color:#999;">尚無勾選的學員</p>';
+                document.getElementById('studentList').innerHTML = '<p style="text-align:center;color:#999;">尚無學員</p>';
                 document.getElementById('totalCount').innerText = '共 0 人';
                 return;
             }
             
             let html = '<table style="width:100%;border-collapse:collapse;border:2px solid #000000;border-radius:10px;overflow:hidden;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">性別</th><th style="padding:14px;">簽到</th></tr>';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">性別</th><th style="padding:14px;text-align:center;">請假</th><th style="padding:14px;text-align:center;">簽到</th></tr>';
             list.forEach((p,i) => {
                 let sig = signatures[p.id];
-                let bg = sig ? '#ffffff' : '#ffffff';
+                let leave = leaves[p.id];
+                let bg = sig ? '#e8f5e9' : (leave ? '#fff3e0' : '#ffffff');
                 html += '<tr style="background:'+bg+';">';
                 html += '<td style="padding:14px;text-align:center;font-weight:bold;font-size: 30px;">'+(i+1)+'</td>';
                 html += '<td style="padding:14px;font-weight:bold;font-size: 30px;">'+p.name+'</td>';
                 html += '<td style="padding:14px;text-align:center;">'+(p.gender||'-')+'</td>';
-                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:#000000;color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'學員簽到')+'</button></td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="toggleLeave('+p.id+')" style="padding:10px 20px;background:'+(leave?'#ff9800':'#ffffff')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size: 30px;font-weight:bold;">'+(leave?'✓ 請假':'請假')+'</button></td>';
+                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:'+(sig?'#4caf50':'#000000')+';color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'學員簽到')+'</button></td>';
                 html += '</tr>';
             });
             html += '</table>';
             document.getElementById('studentList').innerHTML = html;
-            document.getElementById('totalCount').innerText = '共 ' + list.length + ' 人';
+            // 統計有簽到或請假的人數
+            let signedCount = Object.keys(signatures).length;
+            let leaveCount = Object.keys(leaves).length;
+            document.getElementById('totalCount').innerText = '簽到 ' + signedCount + ' / 請假 ' + leaveCount + ' / 共 ' + list.length + ' 人';
+        }
+        
+        function toggleLeave(id) {
+            if(leaves[id]) {
+                delete leaves[id];
+            } else {
+                leaves[id] = {time: new Date().toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'})};
+                // 請假時清除簽到
+                if(signatures[id]) {
+                    delete signatures[id];
+                    localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(signatures));
+                }
+            }
+            localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(leaves));
+            renderStudentList();
+            updateStats();
         }
 
         // Stats
         function updateStats() {
-            let studentList = students.filter(s => s.checked);
+            let studentList = students; // 顯示所有學員
             let volunteerList = volunteers.filter(v => v.checked);
-            let male = 0, female = 0, volunteer = 0;
+            let male = 0, female = 0, volunteer = 0, leaveCount = 0;
             
             // 統計學員
             studentList.forEach(s => { 
                 if(signatures[s.id]) { 
                     if(s.gender === '男') male++; 
                     else if(s.gender === '女') female++; 
-                } 
+                }
+                if(leaves[s.id]) {
+                    leaveCount++;
+                }
             });
             
             // 統計志工
@@ -909,7 +935,7 @@
             document.getElementById('statMale').innerText = male;
             document.getElementById('statFemale').innerText = female;
             document.getElementById('statVolunteer').innerText = volunteer;
-            document.getElementById('statTotal').innerText = male + female + volunteer;
+            document.getElementById('statTotal').innerText = male + female + volunteer + leaveCount;
         }
         function renderExportPreview() {
             let exportSession = document.getElementById('exportSessionSelect').value;
