@@ -193,6 +193,7 @@
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     <button onclick="loadDemo(10)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 10人</button>
                     <button onclick="loadDemo(20)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 20人</button>
+                    <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                 </div>
@@ -688,6 +689,23 @@
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位');
+        }
+        
+        // 2026年3月 新學員名單
+        function loadStudents2026() {
+            const newStudents = [
+                {n:'王芬英',g:'女'},{n:'黃寶怡',g:'女'},{n:'陳雪珠',g:'女'},{n:'陳暉琳',g:'女'},{n:'林思儒',g:'女'},{n:'林曼萍',g:'女'},{n:'張翠蓮',g:'女'},{n:'王惠姿',g:'女'},{n:'方秀惠',g:'女'},{n:'黃譯慧',g:'女'},{n:'張亦鵬',g:'女'},{n:'曾玉女',g:'女'},{n:'林桂榮',g:'女'},{n:'廖振隆',g:'男'},{n:'許淑珍',g:'女'},{n:'許惠玲',g:'女'},{n:'高瑞嬌',g:'女'},{n:'高惠貞',g:'女'},{n:'高瑞嬌',g:'女'},{n:'曾美玲',g:'女'}
+            ];
+            let added = 0;
+            newStudents.forEach(d => {
+                if(!students.some(s => s.name === d.n)) {
+                    students.push({id:Date.now()+added, name:d.n, gender:d.g, checked:true});
+                    added++;
+                }
+            });
+            localStorage.setItem('s_students',JSON.stringify(students));
+            renderAll();
+            alert('已載入 ' + added + ' 位學員');
         }
 
         // Volunteer
