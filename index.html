@@ -403,7 +403,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.12 (115.3.9) - 請假同步到匯出與預覽</p>
+        <p>版本：v0.13 (115.3.9) - 修復簽到名單只顯示已勾選學員</p>
     </footer>
 
     <script>
@@ -606,7 +606,8 @@
         
         function renderVolunteerSigninList() {
             let query = document.getElementById('searchQueryVol').value.trim().toLowerCase();
-            let list = volunteers;
+            // 數位志工簽到只顯示已勾選的志工
+            let list = volunteers.filter(v => v.checked);
             if(query) list = list.filter(v => v.name.toLowerCase().includes(query));
             
             if(list.length === 0) {
@@ -882,12 +883,12 @@
 
         function renderStudentList() {
             let query = document.getElementById('searchQuery').value.trim().toLowerCase();
-            // 顯示所有學員（包含未勾選），讓使用者可以選擇
-            let list = students;
+            // 學員簽到只顯示已勾選的學員
+            let list = students.filter(s => s.checked);
             if(query) list = list.filter(p => p.name.toLowerCase().includes(query));
             
             if(list.length === 0) {
-                document.getElementById('studentList').innerHTML = '<p style="text-align:center;color:#999;">尚無學員</p>';
+                document.getElementById('studentList').innerHTML = '<p style="text-align:center;color:#999;">尚無勾選的學員</p>';
                 document.getElementById('totalCount').innerText = '共 0 人';
                 return;
             }
