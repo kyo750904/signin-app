@@ -403,7 +403,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.11 (115.3.9) - 數位志工新增請假功能</p>
+        <p>版本：v0.12 (115.3.9) - 請假同步到匯出與預覽</p>
     </footer>
 
     <script>
@@ -961,36 +961,48 @@
             let exportSession = document.getElementById('exportSessionSelect').value;
             let date = exportSession || currentSession;
             let exportSig = JSON.parse(localStorage.getItem('s_signatures_' + date) || '{}');
+            let exportLeave = JSON.parse(localStorage.getItem('s_leaves_' + date) || '{}');
+            let exportVolunteerLeave = JSON.parse(localStorage.getItem('s_volunteerLeaves_' + date) || '{}');
             
             let html = '';
             
             // 學員區塊
-            let studentList = students.filter(s => s.checked);
-            let studentSigned = 0;
-            studentList.forEach(p => { if(exportSig[p.id]) studentSigned++; });
+            let studentList = students;
+            let studentSigned = 0, studentLeave = 0;
+            studentList.forEach(p => { 
+                if(exportSig[p.id]) studentSigned++; 
+                if(exportLeave[p.id]) studentLeave++;
+            });
             
             html += '<div style="background:#ffffff;padding:10px;border-radius:8px;margin-bottom:10px;">';
-            html += '<h4 style="margin:0;color:#000000;">學員管理 ('+studentSigned+'人)</h4></div>';
+            html += '<h4 style="margin:0;color:#000000;">學員管理 (簽到 '+studentSigned+'人 / 請假 '+studentLeave+'人)</h4></div>';
             html += '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:8px;">#</th><th style="padding:8px;">姓名</th><th style="padding:8px;">性別</th><th style="padding:8px;">簽到</th></tr>';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:8px;">#</th><th style="padding:8px;">姓名</th><th style="padding:8px;">性別</th><th style="padding:8px;">狀態</th></tr>';
             studentList.forEach((p,i) => {
                 let sig = exportSig[p.id];
-                html += '<tr><td style="padding:8px;">'+(i+1)+'</td><td style="padding:8px;">'+p.name+'</td><td style="padding:8px;">'+(p.gender||'-')+'</td><td style="padding:8px;">'+(sig?'✓ '+sig.time:'-')+'</td></tr>';
+                let leave = exportLeave[p.id];
+                let status = leave ? '請假' : (sig ? '簽到' : '-');
+                html += '<tr><td style="padding:8px;">'+(i+1)+'</td><td style="padding:8px;">'+p.name+'</td><td style="padding:8px;">'+(p.gender||'-')+'</td><td style="padding:8px;color:'+(leave?'#ff9800':(sig?'#4caf50':'#999'))+';font-weight:bold;">'+status+'</td></tr>';
             });
             html += '</table>';
             
             // 志工區塊
-            let volunteerList = volunteers.filter(v => v.checked);
-            let volunteerSigned = 0;
-            volunteerList.forEach(p => { if(exportSig[p.id]) volunteerSigned++; });
+            let volunteerList = volunteers;
+            let volunteerSigned = 0, volunteerLeave = 0;
+            volunteerList.forEach(p => { 
+                if(exportSig[p.id]) volunteerSigned++; 
+                if(exportVolunteerLeave[p.id]) volunteerLeave++;
+            });
             
             html += '<div style="background:#ffffff;padding:10px;border-radius:8px;margin:10px 0;">';
-            html += '<h4 style="margin:0;color:#000000;">🌟 數位志工 ('+volunteerSigned+'人)</h4></div>';
+            html += '<h4 style="margin:0;color:#000000;">🌟 數位志工 (簽到 '+volunteerSigned+'人 / 請假 '+volunteerLeave+'人)</h4></div>';
             html += '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:8px;">#</th><th style="padding:8px;">姓名</th><th style="padding:8px;">角色</th><th style="padding:8px;">簽到</th></tr>';
+            html += '<tr style="background:#000000;color:white;"><th style="padding:8px;">#</th><th style="padding:8px;">姓名</th><th style="padding:8px;">角色</th><th style="padding:8px;">狀態</th></tr>';
             volunteerList.forEach((p,i) => {
                 let sig = exportSig[p.id];
-                html += '<tr><td style="padding:8px;">'+(i+1)+'</td><td style="padding:8px;">'+p.name+'</td><td style="padding:8px;">'+(p.role||'數位志工')+'</td><td style="padding:8px;">'+(sig?'✓ '+sig.time:'-')+'</td></tr>';
+                let leave = exportVolunteerLeave[p.id];
+                let status = leave ? '請假' : (sig ? '簽到' : '-');
+                html += '<tr><td style="padding:8px;">'+(i+1)+'</td><td style="padding:8px;">'+p.name+'</td><td style="padding:8px;">'+(p.role||'數位志工')+'</td><td style="padding:8px;color:'+(leave?'#ff9800':(sig?'#4caf50':'#999'))+';font-weight:bold;">'+status+'</td></tr>';
             });
             html += '</table>';
             
@@ -1152,46 +1164,56 @@
             
             // 根據選擇的場次載入簽到資料
             let exportSig = JSON.parse(localStorage.getItem('s_signatures_' + date) || '{}');
+            let exportLeave = JSON.parse(localStorage.getItem('s_leaves_' + date) || '{}');
+            let exportVolunteerLeave = JSON.parse(localStorage.getItem('s_volunteerLeaves_' + date) || '{}');
             
-            let studentList = students.filter(s => s.checked);
-            let volunteerList = volunteers.filter(v => v.checked);
+            let studentList = students;
+            let volunteerList = volunteers;
             
             let ws = [['','花蓮市樂齡學習中心 簽到表'],['承辦單位',course.organizer||'-'],['課程名稱',course.title||'-'],['日期',date],['','']];
             
             // 學員
             ws.push(['學員管理']);
-            ws.push(['編號','姓名','性別','簽名','時間']);
-            let male=0,female=0,studentSigned=0;
+            ws.push(['編號','姓名','性別','狀態','時間']);
+            let male=0,female=0,studentSigned=0,studentLeave=0;
             studentList.forEach((p,i) => {
                 let sig = exportSig[p.id];
+                let leave = exportLeave[p.id];
+                let status = leave ? '請假' : (sig ? '簽到' : '-');
                 if(sig) { 
                     if(p.gender==='男')male++; 
                     else if(p.gender==='女')female++; 
                     studentSigned++;
                 }
-                ws.push([i+1, p.name, p.gender||'-', sig?'✓':'-', sig?sig.time:'-']);
+                if(leave) studentLeave++;
+                ws.push([i+1, p.name, p.gender||'-', status, sig?sig.time:(leave?leave.time:'-')]);
             });
-            ws.push(['小計',studentSigned,'人']);
+            ws.push(['小計','簽到 '+studentSigned+' 人 / 請假 '+studentLeave+' 人']);
             ws.push(['','']);
             
             // 志工
             ws.push(['🌟 數位志工']);
-            ws.push(['編號','姓名','角色','簽名','時間']);
-            let volunteerSigned=0;
+            ws.push(['編號','姓名','角色','狀態','時間']);
+            let volunteerSigned=0,volunteerLeave=0;
             volunteerList.forEach((p,i) => {
                 let sig = exportSig[p.id];
+                let leave = exportVolunteerLeave[p.id];
+                let status = leave ? '請假' : (sig ? '簽到' : '-');
                 if(sig) volunteerSigned++;
-                ws.push([i+1, p.name, p.role||'數位志工', sig?'✓':'-', sig?sig.time:'-']);
+                if(leave) volunteerLeave++;
+                ws.push([i+1, p.name, p.role||'數位志工', status, sig?sig.time:(leave?leave.time:'-')]);
             });
-            ws.push(['小計',volunteerSigned,'人']);
+            ws.push(['小計','簽到 '+volunteerSigned+' 人 / 請假 '+volunteerLeave+' 人']);
             ws.push(['','']);
             
             // 統計
             ws.push(['簽到統計']);
             ws.push(['男學員',male,'人']);
             ws.push(['女學員',female,'人']);
-            ws.push(['學員總計',studentSigned,'人']);
-            ws.push(['志工總計',volunteerSigned,'人']);
+            ws.push(['學員簽到',studentSigned,'人']);
+            ws.push(['學員請假',studentLeave,'人']);
+            ws.push(['志工簽到',volunteerSigned,'人']);
+            ws.push(['志工請假',volunteerLeave,'人']);
             ws.push(['簽到總計',male+female+volunteerSigned,'人']);
             
             let wb = XLSX.utils.book_new();
@@ -1206,9 +1228,11 @@
             
             // 根據選擇的場次載入簽到資料
             let exportSig = JSON.parse(localStorage.getItem('s_signatures_' + date) || '{}');
+            let exportLeave = JSON.parse(localStorage.getItem('s_leaves_' + date) || '{}');
+            let exportVolunteerLeave = JSON.parse(localStorage.getItem('s_volunteerLeaves_' + date) || '{}');
             
-            let studentList = students.filter(s => s.checked);
-            let volunteerList = volunteers.filter(v => v.checked);
+            let studentList = students;
+            let volunteerList = volunteers;
             
             let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>簽到表</title><script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script><style>body{font-family:Noto Sans TC,sans-serif;padding:20px;background:#ffffff}.c{background:white;padding:20px;border-radius:10px;margin-bottom:20px}.t{width:100%;border-collapse:collapse}.t th{background:#000000;color:white;padding:12px}.t td{padding:10px;border-bottom:1px solid #ddd}.sec{background:#ffffff;padding:10px;margin:10px 0;border-radius:8px}.sec2{background:#ffffff;padding:10px;margin:10px 0;border-radius:8px}</style></head><body>';
             html += '<div class="c"><h1 style="color:#000000;margin:0;">花蓮市樂齡學習中心 簽到表</h1>';
@@ -1218,27 +1242,35 @@
             
             // 學員區塊
             html += '<div class="sec"><h2 style="color:#000000;margin:0;">學員管理</h2></div>';
-            html += '<table class="t"><tr><th>#</th><th>姓名</th><th>性別</th><th>簽名</th><th>時間</th></tr>';
-            let studentSigned=0;
+            html += '<table class="t"><tr><th>#</th><th>姓名</th><th>性別</th><th>狀態</th><th>簽名/時間</th></tr>';
+            let studentSigned=0,studentLeave=0;
             studentList.forEach((p,i) => {
                 let sig = exportSig[p.id];
+                let leave = exportLeave[p.id];
                 if(sig) studentSigned++;
-                html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.gender||'-')+'</td><td>'+(sig?'<img src="'+sig.dataUrl+'" height="40">':'-')+'</td><td>'+(sig?sig.time:'-')+'</td></tr>';
+                if(leave) studentLeave++;
+                let status = leave ? '<span style="color:#ff9800;font-weight:bold;">請假</span>' : (sig ? '<span style="color:#4caf50;font-weight:bold;">簽到</span>' : '-');
+                let sigOrLeave = leave ? (leave.time||'-') : (sig ? '<img src="'+sig.dataUrl+'" height="40">' : '-');
+                html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.gender||'-')+'</td><td>'+status+'</td><td>'+sigOrLeave+'</td></tr>';
             });
             html += '</table>';
-            html += '<div style="margin:10px 0;font-weight:bold;">學員小計：'+studentSigned+' 人</div>';
+            html += '<div style="margin:10px 0;font-weight:bold;">學員小計：簽到 '+studentSigned+' 人 / 請假 '+studentLeave+' 人</div>';
             
             // 志工區塊
             html += '<div class="sec2"><h2 style="color:#000000;margin:0;">🌟 數位志工</h2></div>';
-            html += '<table class="t"><tr><th>#</th><th>姓名</th><th>角色</th><th>簽名</th><th>時間</th></tr>';
-            let volunteerSigned=0;
+            html += '<table class="t"><tr><th>#</th><th>姓名</th><th>角色</th><th>狀態</th><th>簽名/時間</th></tr>';
+            let volunteerSigned=0,volunteerLeave=0;
             volunteerList.forEach((p,i) => {
                 let sig = exportSig[p.id];
+                let leave = exportVolunteerLeave[p.id];
                 if(sig) volunteerSigned++;
-                html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.role||'數位志工')+'</td><td>'+(sig?'<img src="'+sig.dataUrl+'" height="40">':'-')+'</td><td>'+(sig?sig.time:'-')+'</td></tr>';
+                if(leave) volunteerLeave++;
+                let status = leave ? '<span style="color:#ff9800;font-weight:bold;">請假</span>' : (sig ? '<span style="color:#4caf50;font-weight:bold;">簽到</span>' : '-');
+                let sigOrLeave = leave ? (leave.time||'-') : (sig ? '<img src="'+sig.dataUrl+'" height="40">' : '-');
+                html += '<tr><td>'+(i+1)+'</td><td><strong>'+p.name+'</strong></td><td>'+(p.role||'數位志工')+'</td><td>'+status+'</td><td>'+sigOrLeave+'</td></tr>';
             });
             html += '</table>';
-            html += '<div style="margin:10px 0;font-weight:bold;">志工小計：'+volunteerSigned+' 人</div>';
+            html += '<div style="margin:10px 0;font-weight:bold;">志工小計：簽到 '+volunteerSigned+' 人 / 請假 '+volunteerLeave+' 人</div>';
             
             html += '<button onclick="html2canvas(document.body).then(c=>{let l=document.createElement(\'a\');l.download=\'簽到表.png\';l.href=c.toDataURL();l.click();})" style="margin:20px;padding:15px 30px;background:#000000;color:white;border:none;border-radius:10px;cursor:pointer;font-size: 30px;">📷 匯出圖片</button>';
             html += '</body></html>';
