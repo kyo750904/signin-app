@@ -1,0 +1,18 @@
+{
+  "name": "樂齡學習中心簽到系統",
+  "short_name": "簽到系統",
+  "description": "樂齡學習中心學員志工簽到系統",
+  "start_url": "/signin-app/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#e65100",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
