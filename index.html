@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.19 (115.4.9) - 新增刪除簽到場次功能</p>
+        <p>版本：v0.20 (115.4.9) - 修復數位志工簽到即時顯示</p>
     </footer>
 
     <script>
@@ -1258,8 +1258,24 @@
                     signatures[curSigId] = {dataUrl:data, time:time};
                     localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
                     fbSet(FB_COL.SIGNATURES + '/' + currentSession, signatures);
+                    
+                    // 檢查是學員還是志工，選擇性更新列表
+                    let isVolunteer = volunteers.some(v => v.id === curSigId);
+                    let volContent = document.getElementById('signin-volunteer-content');
+                    let stuContent = document.getElementById('signin-student-content');
+                    
                     closeSigModal();
-                    renderAll();
+                    
+                    if (isVolunteer && volContent && volContent.style.display !== 'none') {
+                        // 數位志工：直接更新志工簽到列表
+                        renderVolunteerSigninList();
+                    } else if (!isVolunteer && stuContent && stuContent.style.display !== 'none') {
+                        // 正式學員：直接更新學員簽到列表
+                        renderStudentList();
+                    } else {
+                        // 其他情況用 renderAll
+                        renderAll();
+                    }
                     alert('簽到成功！');
                     return;
                 }
