@@ -446,18 +446,27 @@
             measurementId: "G-66Q2D309DM"
         };
 
-        // Initialize Firebase
-        firebase.initializeApp(FirebaseConfig);
-        const db = firebase.firestore();
-
-        // 離線優先：開啟離線持久化
-        db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-            if (err.code === 'failed-precondition') {
-                console.warn('Firestore 離線持久化失敗：多個分頁同時開啟');
-            } else if (err.code === 'unimplemented') {
-                console.warn('Firestore 離線持久化不支援此瀏覽器');
+        // Initialize Firebase（安全檢查，防止 SDK 載入失敗導致當機）
+        let db = null;
+        try {
+            if (typeof firebase !== 'undefined') {
+                firebase.initializeApp(FirebaseConfig);
+                db = firebase.firestore();
+                // 離線優先：開啟離線持久化
+                db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+                    if (err.code === 'failed-precondition') {
+                        console.warn('Firestore 離線持久化失敗：多個分頁同時開啟');
+                    } else if (err.code === 'unimplemented') {
+                        console.warn('Firestore 離線持久化不支援此瀏覽器');
+                    }
+                });
+                console.log('Firebase 初始化成功');
+            } else {
+                console.warn('Firebase SDK 未載入，純 localStorage 模式');
             }
-        });
+        } catch (e) {
+            console.warn('Firebase 初始化失敗，使用 localStorage 模式：', e.message);
+        }
 
         // Firestore 集合路徑
         const COL = {
@@ -473,6 +482,7 @@
 
         // Firebase 寫入（離線優先：先 localStorage，再非同步寫入 Firestore）
         async function fbSet(docPath, data) {
+            if (!db) return;
             try {
                 await db.doc(docPath).set(data, { merge: true });
             } catch (e) {
@@ -480,6 +490,7 @@
             }
         }
         async function fbUpdate(docPath, data) {
+            if (!db) return;
             try {
                 await db.doc(docPath).update(data);
             } catch (e) {
@@ -487,6 +498,7 @@
             }
         }
         async function fbDelete(docPath) {
+            if (!db) return;
             try {
                 await db.doc(docPath).delete();
             } catch (e) {
@@ -494,6 +506,7 @@
             }
         }
         async function fbGet(docPath) {
+            if (!db) return null;
             try {
                 const snap = await db.doc(docPath).get();
                 return snap.exists ? snap.data() : null;
@@ -505,7 +518,11 @@
 
         // 資料同步延遲（避免 Firebase 還沒初始化就讀取）
         let fbReady = false;
-        db.collection(COL.STUDENTS).limit(1).get().then(() => { fbReady = true; }).catch(() => { fbReady = true; });
+        if (db) {
+            db.collection(COL.STUDENTS).limit(1).get().then(() => { fbReady = true; }).catch(() => { fbReady = true; });
+        } else {
+            fbReady = true;
+        }
 
         // Data
         let students = JSON.parse(localStorage.getItem('s_students') || '[]');
@@ -530,6 +547,7 @@
 
         // ====== 啟動時從 Firestore 同步回 localStorage ======
         (async function syncFromFirestore() {
+            if (!db) { fbReady = true; renderAll(); return; }
             try {
                 // 同步學員
                 const stSnap = await db.collection(COL.STUDENTS).get();
