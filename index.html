@@ -12,6 +12,9 @@
     <script src="libs/xlsx.full.min.js"></script>
     <script src="libs/signature_pad.umd.min.js"></script>
     <script src="libs/html2canvas.min.js"></script>
+    <!-- Firebase SDK（非同步載入，不阻擋頁面） -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
         * { 
             box-sizing: border-box; 
@@ -411,7 +414,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.17 (115.4.9) - 新增儲存空間管理，解決 quota exceeded</p>
+        <p>版本：v0.18 (115.4.9) - Firebase Firestore 雲端同步</p>
     </footer>
 
     <script>
@@ -429,6 +432,83 @@
         }
         if(!checkPassword()) {
             document.body.innerHTML = '<div style="padding:40px;text-align:center;"><h1>🔒 需要密碼</h1><p>請重新整理頁面輸入密碼</p></div>';
+        }
+        
+        // ====== Firebase Firestore 初始化 ======
+        let fbReady = false;
+        let fbDB = null;
+        
+        (function initFirebase() {
+            try {
+                const config = {
+                    apiKey: "AIzaSyAlEBlNIEFeJWLZelZuXR5hmfuw2DhNKMs",
+                    authDomain: "hlsignin-app.firebaseapp.com",
+                    projectId: "hlsignin-app",
+                    storageBucket: "hlsignin-app.firebasestorage.app",
+                    messagingSenderId: "109382068090",
+                    appId: "1:109382068090:web:437ee1cbd10cb96c5358c3",
+                    measurementId: "G-66Q2D309DM"
+                };
+                if (typeof firebase !== 'undefined' && firebase.apps) {
+                    if (firebase.apps.length === 0) firebase.initializeApp(config);
+                    fbDB = firebase.firestore();
+                    
+                    // 嘗試開啟離線持久化（常見錯誤不顯示）
+                    fbDB.enablePersistence({ synchronizeTabs: true })
+                        .then(() => { fbReady = true; console.log('Firebase 離線持久化已開啟'); })
+                        .catch(err => {
+                            if (err.code === 'failed-precondition' || err.code === 'unimplemented') {
+                                // 正常：多分頁或不支援 - 不需要特別處理
+                            } else {
+                                console.warn('Firebase 離線持久化設定:', err.message);
+                            }
+                            fbReady = true;
+                        });
+                } else {
+                    console.warn('Firebase SDK 未成功載入，僅使用本地模式');
+                }
+            } catch(e) {
+                console.warn('Firebase 初始化失敗，僅使用本地模式:', e.message);
+            }
+        })();
+        
+        // Firestore 集合路徑常數
+        const FB_COL = {
+            STUDENTS: 'signin_data/students',
+            VOLUNTEERS: 'signin_data/volunteers',
+            COURSE: 'signin_data/course',
+            SESSIONS: 'signin_data/sessions',
+            SIGNATURES: 'signin_data/signatures',
+            LEAVES: 'signin_data/leaves',
+            VOLUNTEER_LEAVES: 'signin_data/volunteerLeaves',
+            BLANK_SIGNINS: 'signin_data/blankSignins'
+        };
+        
+        // 非同步寫入 Firestore（失敗不影響 localStorage）
+        function fbSet(docPath, data) {
+            if (!fbReady || !fbDB) return;
+            setTimeout(() => {
+                try {
+                    fbDB.doc(docPath).set(data, { merge: true }).catch(() => {});
+                } catch(e) {}
+            }, 0);
+        }
+        function fbDelete(docPath) {
+            if (!fbReady || !fbDB) return;
+            setTimeout(() => {
+                try {
+                    fbDB.doc(docPath).delete().catch(() => {});
+                } catch(e) {}
+            }, 0);
+        }
+        // 清除 Firestore 中特定文件（設為空物件）
+        function fbClear(docPath) {
+            if (!fbReady || !fbDB) return;
+            setTimeout(() => {
+                try {
+                    fbDB.doc(docPath).set({}, { merge: false }).catch(() => {});
+                } catch(e) {}
+            }, 0);
         }
         
         // Data
@@ -653,9 +733,11 @@
                 if(signatures[id]) {
                     delete signatures[id];
                     localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(signatures));
+                    fbSet(FB_COL.SIGNATURES + '/' + currentSession, signatures);
                 }
             }
             localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(volunteerLeaves));
+            fbSet(FB_COL.VOLUNTEER_LEAVES + '/' + currentSession, volunteerLeaves);
             renderVolunteerSigninList();
             updateStats();
         }
@@ -680,14 +762,21 @@
             let name = document.getElementById('newStudentName').value.trim();
             let gender = document.getElementById('newStudentGender').value;
             if(!name) { alert('請輸入姓名'); return; }
-            students.push({id:Date.now(), name, gender, checked:true});
+            let newStudent = {id:Date.now(), name, gender, checked:true};
+            students.push(newStudent);
             localStorage.setItem('s_students',JSON.stringify(students));
+            fbSet(FB_COL.STUDENTS + '/' + newStudent.id, newStudent);
             document.getElementById('newStudentName').value = '';
             renderAll();
         }
         function toggleStudent(id) {
             let s = students.find(x => x.id === id);
-            if(s) { s.checked = !s.checked; localStorage.setItem('s_students',JSON.stringify(students)); renderAll(); }
+            if(s) {
+                s.checked = !s.checked;
+                localStorage.setItem('s_students',JSON.stringify(students));
+                fbSet(FB_COL.STUDENTS + '/' + id, { checked: s.checked });
+                renderAll();
+            }
         }
         function deleteStudent(id) {
             if(!confirm('確定刪除？')) return;
@@ -695,11 +784,14 @@
             delete signatures[id];
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+            fbDelete(FB_COL.STUDENTS + '/' + id);
             renderAll();
         }
         function clearAllStudents() {
             if(!confirm('確定清除所有學員？')) return;
-            students = []; signatures = {};
+            students.forEach(s => fbDelete(FB_COL.STUDENTS + '/' + s.id));
+            students = [];
+            signatures = {};
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
             renderAll();
@@ -712,7 +804,9 @@
             let added = 0;
             list.forEach(d => {
                 if(!students.some(s => s.name === d.n)) {
-                    students.push({id:Date.now()+added, name:d.n, gender:d.g, checked:true});
+                    let newStudent = {id:Date.now()+added, name:d.n, gender:d.g, checked:true};
+                    students.push(newStudent);
+                    fbSet(FB_COL.STUDENTS + '/' + newStudent.id, newStudent);
                     added++;
                 }
             });
@@ -729,7 +823,9 @@
             let added = 0;
             newStudents.forEach(d => {
                 if(!students.some(s => s.name === d.n)) {
-                    students.push({id:Date.now()+added, name:d.n, gender:d.g, checked:true});
+                    let newStudent = {id:Date.now()+added, name:d.n, gender:d.g, checked:true};
+                    students.push(newStudent);
+                    fbSet(FB_COL.STUDENTS + '/' + newStudent.id, newStudent);
                     added++;
                 }
             });
@@ -743,17 +839,25 @@
             let name = document.getElementById('newVolunteerName').value.trim();
             let role = document.getElementById('newVolunteerRole').value;
             if(!name) { alert('請輸入姓名'); return; }
-            volunteers.push({id:Date.now(), name, role, checked:true});
+            let newVol = {id:Date.now(), name, role, checked:true};
+            volunteers.push(newVol);
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            fbSet(FB_COL.VOLUNTEERS + '/' + newVol.id, newVol);
             document.getElementById('newVolunteerName').value = '';
             renderAll();
         }
         function toggleVolunteer(id) {
             let v = volunteers.find(x => x.id === id);
-            if(v) { v.checked = !v.checked; localStorage.setItem('s_volunteers',JSON.stringify(volunteers)); renderAll(); }
+            if(v) {
+                v.checked = !v.checked;
+                localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+                fbSet(FB_COL.VOLUNTEERS + '/' + id, { checked: v.checked });
+                renderAll();
+            }
         }
         function clearAllVolunteers() {
             if(!confirm('確定清除？')) return;
+            volunteers.forEach(v => fbDelete(FB_COL.VOLUNTEERS + '/' + v.id));
             volunteers = [];
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
             renderAll();
@@ -762,6 +866,7 @@
             if(!confirm('確定刪除？')) return;
             volunteers = volunteers.filter(v => v.id !== id);
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            fbDelete(FB_COL.VOLUNTEERS + '/' + id);
             renderAll();
         }
 
@@ -838,6 +943,7 @@
             };
             if(!course.organizer) { alert('請選擇承辦單位'); return; }
             localStorage.setItem('s_course',JSON.stringify(course));
+            fbSet(FB_COL.COURSE + '/current', course);
             alert('已儲存');
             loadCourseInfo();
         }
@@ -932,9 +1038,11 @@
                 if(signatures[id]) {
                     delete signatures[id];
                     localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(signatures));
+                    fbSet(FB_COL.SIGNATURES + '/' + currentSession, signatures);
                 }
             }
             localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(leaves));
+            fbSet(FB_COL.LEAVES + '/' + currentSession, leaves);
             renderStudentList();
             updateStats();
         }
@@ -1093,8 +1201,6 @@
         // 統一的 saveSig 函數 - 處理學員、志工、空白簽到
         function saveSig() {
             try {
-                console.log('saveSig called', {curSigId, curBlankIndex, sigPadExists: !!sigPad});
-                
                 if(!sigPad || sigPad.isEmpty()) { 
                     alert('請先簽名'); 
                     return; 
@@ -1105,9 +1211,9 @@
                 
                 // 學員或志工簽到
                 if(curSigId !== null && curSigId !== undefined) {
-                    console.log('Saving student/volunteer sig for id:', curSigId);
                     signatures[curSigId] = {dataUrl:data, time:time};
                     localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+                    fbSet(FB_COL.SIGNATURES + '/' + currentSession, signatures);
                     closeSigModal();
                     renderAll();
                     alert('簽到成功！');
@@ -1116,21 +1222,18 @@
                 
                 // 空白簽到
                 if(curBlankIndex !== null && curBlankIndex !== undefined) {
-                    console.log('Saving blank sig for index:', curBlankIndex);
                     blankSignins[curBlankIndex].signature = data;
                     blankSignins[curBlankIndex].time = time;
                     localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+                    fbSet(FB_COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
                     closeSigModal();
                     renderAll();
                     alert('簽到成功！');
                     return;
                 }
                 
-                // 如果都沒有符合的條件
-                console.log('No valid target', {curSigId, curBlankIndex});
                 alert('簽名失敗，請重試');
             } catch(e) {
-                console.error('saveSig error:', e);
                 alert('儲存簽名時發生錯誤: ' + e.message);
             }
         }
@@ -1168,6 +1271,7 @@
             if(!date) { alert('請選擇日期'); return; }
             blankSignins.push({name, date, time, signature: null});
             localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+            fbSet(FB_COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
             document.getElementById('blankName').value = '';
             renderAll();
         }
@@ -1188,6 +1292,7 @@
             if(!confirm('確定刪除？')) return;
             blankSignins.splice(index, 1);
             localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+            fbSet(FB_COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
             renderAll();
         }
 
@@ -1195,6 +1300,7 @@
             if(!confirm('確定清除全部空白簽到？')) return;
             blankSignins = [];
             localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+            fbSet(FB_COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
             renderAll();
         }
 
