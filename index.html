@@ -1084,14 +1084,6 @@
             document.getElementById('sigModal').classList.add('active');
             let canvas = document.getElementById('sigCanvas');
             canvas.width = canvas.offsetWidth;
-            canvas.height = 200;
-            // Initialize sigPad if not already done
-            if (!sigPad) {
-                sigPad = new SignaturePad(canvas, OPT);
-            } else {
-                sigPad.clear();
-            }
-        }
             canvas.height = canvas.offsetHeight;
             sigPad = new SignaturePad(canvas, {backgroundColor:'white', penColor:'black'});
             if(blankSignins[index].signature) sigPad.fromDataURL(blankSignins[index].signature);
