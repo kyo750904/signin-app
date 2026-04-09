@@ -12,10 +12,6 @@
     <script src="libs/xlsx.full.min.js"></script>
     <script src="libs/signature_pad.umd.min.js"></script>
     <script src="libs/html2canvas.min.js"></script>
-
-    <!-- Firebase SDK v9 modular -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
         * { 
             box-sizing: border-box; 
@@ -415,7 +411,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.18 (115.4.9) - 整合 Firebase Firestore 雲端同步</p>
+        <p>版本：v0.17 (115.4.9) - 新增儲存空間管理，解決 quota exceeded</p>
     </footer>
 
     <script>
@@ -435,101 +431,12 @@
             document.body.innerHTML = '<div style="padding:40px;text-align:center;"><h1>🔒 需要密碼</h1><p>請重新整理頁面輸入密碼</p></div>';
         }
         
-        // ====== Firebase Firestore 初始化 ======
-        const FirebaseConfig = {
-            apiKey: "AIzaSyAlEBlNIEFeJWLZelZuXR5hmfuw2DhNKMs",
-            authDomain: "hlsignin-app.firebaseapp.com",
-            projectId: "hlsignin-app",
-            storageBucket: "hlsignin-app.firebasestorage.app",
-            messagingSenderId: "109382068090",
-            appId: "1:109382068090:web:437ee1cbd10cb96c5358c3",
-            measurementId: "G-66Q2D309DM"
-        };
-
-        // Initialize Firebase（安全檢查，防止 SDK 載入失敗導致當機）
-        let db = null;
-        try {
-            if (typeof firebase !== 'undefined') {
-                firebase.initializeApp(FirebaseConfig);
-                db = firebase.firestore();
-                // 離線優先：開啟離線持久化
-                db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-                    if (err.code === 'failed-precondition') {
-                        console.warn('Firestore 離線持久化失敗：多個分頁同時開啟');
-                    } else if (err.code === 'unimplemented') {
-                        console.warn('Firestore 離線持久化不支援此瀏覽器');
-                    }
-                });
-                console.log('Firebase 初始化成功');
-            } else {
-                console.warn('Firebase SDK 未載入，純 localStorage 模式');
-            }
-        } catch (e) {
-            console.warn('Firebase 初始化失敗，使用 localStorage 模式：', e.message);
-        }
-
-        // Firestore 集合路徑
-        const COL = {
-            STUDENTS: 'signin_data/students',
-            VOLUNTEERS: 'signin_data/volunteers',
-            COURSE: 'signin_data/course',
-            SESSIONS: 'signin_data/sessions',
-            SIGNATURES: 'signin_data/signatures',
-            LEAVES: 'signin_data/leaves',
-            VOLUNTEER_LEAVES: 'signin_data/volunteerLeaves',
-            BLANK_SIGNINS: 'signin_data/blankSignins'
-        };
-
-        // Firebase 寫入（離線優先：先 localStorage，再非同步寫入 Firestore）
-        async function fbSet(docPath, data) {
-            if (!db) return;
-            try {
-                await db.doc(docPath).set(data, { merge: true });
-            } catch (e) {
-                console.warn('Firestore 寫入失敗（已快取至 localStorage）:', e.message);
-            }
-        }
-        async function fbUpdate(docPath, data) {
-            if (!db) return;
-            try {
-                await db.doc(docPath).update(data);
-            } catch (e) {
-                console.warn('Firestore 更新失敗:', e.message);
-            }
-        }
-        async function fbDelete(docPath) {
-            if (!db) return;
-            try {
-                await db.doc(docPath).delete();
-            } catch (e) {
-                console.warn('Firestore 刪除失敗:', e.message);
-            }
-        }
-        async function fbGet(docPath) {
-            if (!db) return null;
-            try {
-                const snap = await db.doc(docPath).get();
-                return snap.exists ? snap.data() : null;
-            } catch (e) {
-                console.warn('Firestore 讀取失敗:', e.message);
-                return null;
-            }
-        }
-
-        // 資料同步延遲（避免 Firebase 還沒初始化就讀取）
-        let fbReady = false;
-        if (db) {
-            db.collection(COL.STUDENTS).limit(1).get().then(() => { fbReady = true; }).catch(() => { fbReady = true; });
-        } else {
-            fbReady = true;
-        }
-
         // Data
         let students = JSON.parse(localStorage.getItem('s_students') || '[]');
         students.forEach(s => { if (s.checked === undefined) s.checked = true; });
         let volunteers = JSON.parse(localStorage.getItem('s_volunteers') || '[]');
         volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
-
+        
         // 簽到場次管理
         let currentSession = localStorage.getItem('s_currentSession') || new Date().toISOString().slice(0,10);
         let allSessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
@@ -538,88 +445,13 @@
             allSessions.sort().reverse();
             localStorage.setItem('s_allSessions',JSON.stringify(allSessions));
         }
-
+        
         // 根據場次載入簽到資料
         let signatures = JSON.parse(localStorage.getItem('s_signatures_' + currentSession) || '{}');
         let leaves = JSON.parse(localStorage.getItem('s_leaves_' + currentSession) || '{}');
         let volunteerLeaves = JSON.parse(localStorage.getItem('s_volunteerLeaves_' + currentSession) || '{}');
         let blankSignins = JSON.parse(localStorage.getItem('s_blankSignins_' + currentSession) || '[]');
-
-        // ====== 啟動時從 Firestore 同步回 localStorage ======
-        (async function syncFromFirestore() {
-            if (!db) { fbReady = true; renderAll(); return; }
-            try {
-                // 同步學員
-                const stSnap = await db.collection(COL.STUDENTS).get();
-                if (!stSnap.empty) {
-                    const fbStudents = {};
-                    stSnap.forEach(doc => { fbStudents[doc.id] = doc.data(); });
-                    // 取最新 id 的版本
-                    const latest = {};
-                    Object.values(fbStudents).forEach(s => { if (s.id) latest[s.id] = s; });
-                    const arr = Object.values(latest);
-                    if (arr.length > 0) {
-                        localStorage.setItem('s_students', JSON.stringify(arr));
-                        students = arr;
-                        students.forEach(s => { if (s.checked === undefined) s.checked = true; });
-                    }
-                }
-
-                // 同步志工
-                const volSnap = await db.collection(COL.VOLUNTEERS).get();
-                if (!volSnap.empty) {
-                    const fbVols = {};
-                    volSnap.forEach(doc => { fbVols[doc.id] = doc.data(); });
-                    const latest = {};
-                    Object.values(fbVols).forEach(v => { if (v.id) latest[v.id] = v; });
-                    const arr = Object.values(latest);
-                    if (arr.length > 0) {
-                        localStorage.setItem('s_volunteers', JSON.stringify(arr));
-                        volunteers = arr;
-                        volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
-                    }
-                }
-
-                // 同步課程
-                const courseSnap = await db.collection(COL.COURSE).doc('current').get();
-                if (courseSnap.exists) {
-                    localStorage.setItem('s_course', JSON.stringify(courseSnap.data()));
-                }
-
-                // 同步場次列表
-                const sessSnap = await db.collection(COL.SESSIONS).doc('list').get();
-                if (sessSnap.exists) {
-                    localStorage.setItem('s_allSessions', JSON.stringify(sessSnap.data().list || []));
-                    localStorage.setItem('s_currentSession', sessSnap.data().current || currentSession);
-                    currentSession = localStorage.getItem('s_currentSession');
-                    allSessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
-                }
-
-                // 同步目前場次的簽名、請假、空白簽到
-                const sigSnap = await db.collection(COL.SIGNATURES).doc(currentSession).get();
-                if (sigSnap.exists) localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(sigSnap.data() || {}));
-
-                const leaveSnap = await db.collection(COL.LEAVES).doc(currentSession).get();
-                if (leaveSnap.exists) localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(leaveSnap.data() || {}));
-
-                const volLeaveSnap = await db.collection(COL.VOLUNTEER_LEAVES).doc(currentSession).get();
-                if (volLeaveSnap.exists) localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(volLeaveSnap.data() || {}));
-
-                const blankSnap = await db.collection(COL.BLANK_SIGNINS).doc(currentSession).get();
-                if (blankSnap.exists) localStorage.setItem('s_blankSignins_' + currentSession, JSON.stringify(blankSnap.data() || []));
-
-                // 重新載入簽到相關資料
-                signatures = JSON.parse(localStorage.getItem('s_signatures_' + currentSession) || '{}');
-                leaves = JSON.parse(localStorage.getItem('s_leaves_' + currentSession) || '{}');
-                volunteerLeaves = JSON.parse(localStorage.getItem('s_volunteerLeaves_' + currentSession) || '{}');
-                blankSignins = JSON.parse(localStorage.getItem('s_blankSignins_' + currentSession) || '[]');
-
-                renderAll();
-            } catch(e) {
-                console.warn('Firestore 初始同步失敗，使用 localStorage:', e.message);
-            }
-        })();
-
+        
         const defaultOrgs = ['花蓮市樂齡學習中心'];
         
         // Init
@@ -739,7 +571,6 @@
             allSessions.sort().reverse();
             localStorage.setItem('s_allSessions',JSON.stringify(allSessions));
             localStorage.setItem('s_currentSession',date);
-            fbSet(COL.SESSIONS + '/list', { list: allSessions, current: date });
             location.reload();
         }
 
@@ -748,7 +579,6 @@
             let date = sel.value;
             if(!date) return;
             localStorage.setItem('s_currentSession',date);
-            fbSet(COL.SESSIONS + '/list', { list: allSessions, current: date });
             location.reload();
         }
 
@@ -823,11 +653,9 @@
                 if(signatures[id]) {
                     delete signatures[id];
                     localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(signatures));
-                    fbSet(COL.SIGNATURES + '/' + currentSession, signatures);
                 }
             }
             localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(volunteerLeaves));
-            fbSet(COL.VOLUNTEER_LEAVES + '/' + currentSession, volunteerLeaves);
             renderVolunteerSigninList();
             updateStats();
         }
@@ -854,13 +682,12 @@
             if(!name) { alert('請輸入姓名'); return; }
             students.push({id:Date.now(), name, gender, checked:true});
             localStorage.setItem('s_students',JSON.stringify(students));
-            fbSet(COL.STUDENTS + '/' + students[students.length-1].id, students[students.length-1]);
             document.getElementById('newStudentName').value = '';
             renderAll();
         }
         function toggleStudent(id) {
             let s = students.find(x => x.id === id);
-            if(s) { s.checked = !s.checked; localStorage.setItem('s_students',JSON.stringify(students)); fbUpdate(COL.STUDENTS + '/' + id, {checked: s.checked}); renderAll(); }
+            if(s) { s.checked = !s.checked; localStorage.setItem('s_students',JSON.stringify(students)); renderAll(); }
         }
         function deleteStudent(id) {
             if(!confirm('確定刪除？')) return;
@@ -868,12 +695,10 @@
             delete signatures[id];
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            fbDelete(COL.STUDENTS + '/' + id);
             renderAll();
         }
         function clearAllStudents() {
             if(!confirm('確定清除所有學員？')) return;
-            students.forEach(s => fbDelete(COL.STUDENTS + '/' + s.id));
             students = []; signatures = {};
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
@@ -888,12 +713,10 @@
             list.forEach(d => {
                 if(!students.some(s => s.name === d.n)) {
                     students.push({id:Date.now()+added, name:d.n, gender:d.g, checked:true});
-                    let newStudent = students[students.length-1];
-                    localStorage.setItem('s_students',JSON.stringify(students));
-                    fbSet(COL.STUDENTS + '/' + newStudent.id, newStudent);
                     added++;
                 }
             });
+            localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位');
         }
@@ -907,12 +730,10 @@
             newStudents.forEach(d => {
                 if(!students.some(s => s.name === d.n)) {
                     students.push({id:Date.now()+added, name:d.n, gender:d.g, checked:true});
-                    let newStudent = students[students.length-1];
-                    localStorage.setItem('s_students',JSON.stringify(students));
-                    fbSet(COL.STUDENTS + '/' + newStudent.id, newStudent);
                     added++;
                 }
             });
+            localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位學員');
         }
@@ -924,17 +745,15 @@
             if(!name) { alert('請輸入姓名'); return; }
             volunteers.push({id:Date.now(), name, role, checked:true});
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-            fbSet(COL.VOLUNTEERS + '/' + volunteers[volunteers.length-1].id, volunteers[volunteers.length-1]);
             document.getElementById('newVolunteerName').value = '';
             renderAll();
         }
         function toggleVolunteer(id) {
             let v = volunteers.find(x => x.id === id);
-            if(v) { v.checked = !v.checked; localStorage.setItem('s_volunteers',JSON.stringify(volunteers)); fbUpdate(COL.VOLUNTEERS + '/' + id, {checked: v.checked}); renderAll(); }
+            if(v) { v.checked = !v.checked; localStorage.setItem('s_volunteers',JSON.stringify(volunteers)); renderAll(); }
         }
         function clearAllVolunteers() {
             if(!confirm('確定清除？')) return;
-            volunteers.forEach(v => fbDelete(COL.VOLUNTEERS + '/' + v.id));
             volunteers = [];
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
             renderAll();
@@ -943,7 +762,6 @@
             if(!confirm('確定刪除？')) return;
             volunteers = volunteers.filter(v => v.id !== id);
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-            fbDelete(COL.VOLUNTEERS + '/' + id);
             renderAll();
         }
 
@@ -1020,7 +838,6 @@
             };
             if(!course.organizer) { alert('請選擇承辦單位'); return; }
             localStorage.setItem('s_course',JSON.stringify(course));
-            fbSet(COL.COURSE + '/current', course);
             alert('已儲存');
             loadCourseInfo();
         }
@@ -1115,11 +932,9 @@
                 if(signatures[id]) {
                     delete signatures[id];
                     localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(signatures));
-                    fbSet(COL.SIGNATURES + '/' + currentSession, signatures);
                 }
             }
             localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(leaves));
-            fbSet(COL.LEAVES + '/' + currentSession, leaves);
             renderStudentList();
             updateStats();
         }
@@ -1293,7 +1108,6 @@
                     console.log('Saving student/volunteer sig for id:', curSigId);
                     signatures[curSigId] = {dataUrl:data, time:time};
                     localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-                    fbSet(COL.SIGNATURES + '/' + currentSession, signatures);
                     closeSigModal();
                     renderAll();
                     alert('簽到成功！');
@@ -1306,7 +1120,6 @@
                     blankSignins[curBlankIndex].signature = data;
                     blankSignins[curBlankIndex].time = time;
                     localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
-                    fbSet(COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
                     closeSigModal();
                     renderAll();
                     alert('簽到成功！');
@@ -1355,7 +1168,6 @@
             if(!date) { alert('請選擇日期'); return; }
             blankSignins.push({name, date, time, signature: null});
             localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
-            fbSet(COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
             document.getElementById('blankName').value = '';
             renderAll();
         }
@@ -1376,7 +1188,6 @@
             if(!confirm('確定刪除？')) return;
             blankSignins.splice(index, 1);
             localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
-            fbSet(COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
             renderAll();
         }
 
@@ -1384,7 +1195,6 @@
             if(!confirm('確定清除全部空白簽到？')) return;
             blankSignins = [];
             localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
-            fbSet(COL.BLANK_SIGNINS + '/' + currentSession, blankSignins);
             renderAll();
         }
 
