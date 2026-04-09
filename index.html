@@ -757,8 +757,7 @@
                 let statusText = sig ? '✓ 已簽到 ' + sig.time : (leave ? '✓ 請假' : '未簽到');
                 let btnColor = sig ? '#4caf50' : '#000000';
                 html += '<div style="background:'+statusBg+';border:3px solid '+borderColor+';border-radius:12px;padding:12px;text-align:center;">';
-                html += '<div style="font-size:30px;font-weight:bold;margin-bottom:4px;">'+p.name+'</div>';
-                html += '<div style="font-size:24px;color:#666;margin-bottom:8px;">'+(p.role||'數位志工')+'</div>';
+                html += '<div style="font-size:28px;font-weight:bold;margin-bottom:4px;">'+p.name+'｜'+(p.role||'數位志工')+'</div>';
                 html += '<div style="font-size:22px;color:'+borderColor+';font-weight:bold;margin-bottom:8px;">'+statusText+'</div>';
                 html += '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">';
                 html += '<button onclick="toggleVolunteerLeave('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+(leave?'#ff9800':'#f5f5f5')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(leave?'✓':'請')+'假</button>';
@@ -1064,8 +1063,7 @@
                 let statusText = sig ? '✓ 已簽到 ' + sig.time : (leave ? '✓ 請假' : '未簽到');
                 let btnColor = sig ? '#4caf50' : '#000000';
                 html += '<div style="background:'+statusBg+';border:3px solid '+borderColor+';border-radius:12px;padding:12px;text-align:center;">';
-                html += '<div style="font-size:30px;font-weight:bold;margin-bottom:4px;">'+p.name+'</div>';
-                html += '<div style="font-size:24px;color:#666;margin-bottom:8px;">'+(p.gender||'-')+'</div>';
+                html += '<div style="font-size:28px;font-weight:bold;margin-bottom:4px;">'+p.name+'｜'+(p.gender||'')+'</div>';
                 html += '<div style="font-size:22px;color:'+borderColor+';font-weight:bold;margin-bottom:8px;">'+statusText+'</div>';
                 html += '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">';
                 html += '<button onclick="toggleLeave('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+(leave?'#ff9800':'#f5f5f5')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(leave?'✓':'請')+'假</button>';
