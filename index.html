@@ -378,6 +378,14 @@
                 <button onclick="previewBlankSignins()" class="btn" style="width:100%;background:#000000;margin-bottom:8px;">👁️ 預覽空白簽到</button>
                 <button onclick="exportBlankExcel()" class="btn" style="width:100%;background:#000000;">📊 匯出空白簽到 Excel</button>
             </div>
+            <div class="card" style="background:#fff3e0;border:2px solid #e65100;">
+                <h3 style="margin: 0 0 12px;color:#e65100;">💾 儲存空間管理</h3>
+                <div id="storageInfo" style="margin-bottom:12px;color:#000000;font-weight:bold;"></div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button onclick="showStorageInfo()" class="btn" style="padding:10px 16px;background:#000000;">📊 查看用量</button>
+                    <button onclick="clearOldSessions()" class="btn" style="padding:10px 16px;background:#e65100;color:white;">🗑️ 清除舊場次</button>
+                </div>
+            </div>
             <div class="card">
                 <h3 style="margin:0 0 12px;">📋 預覽</h3>
                 <div id="previewTable"></div>
@@ -403,7 +411,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.15 (115.4.9) - 修復簽到確認無動作問題</p>
+        <p>版本：v0.17 (115.4.9) - 新增儲存空間管理，解決 quota exceeded</p>
     </footer>
 
     <script>
@@ -1029,6 +1037,58 @@
             curBlankIndex = null;
         }
         function clearSig() { if(sigPad) sigPad.clear(); }
+        
+        // 儲存空間管理
+        function getStorageSize() {
+            let total = 0;
+            for(let key in localStorage) {
+                if(localStorage.hasOwnProperty(key) && key.startsWith('s_')) {
+                    total += localStorage[key].length * 2; // UTF-16 約兩倍
+                }
+            }
+            return (total / 1024 / 1024).toFixed(2); // MB
+        }
+        
+        function showStorageInfo() {
+            let size = getStorageSize();
+            let sessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+            let sessionInfo = [];
+            sessions.forEach(s => {
+                let sigs = localStorage.getItem('s_signatures_' + s) || '{}';
+                let sigCount = Object.keys(JSON.parse(sigs)).length;
+                sessionInfo.push(s + ': ' + sigCount + ' 簽名');
+            });
+            
+            let info = '已使用：' + size + ' MB\n';
+            info += '場次數量：' + sessions.length + '\n';
+            if(sessionInfo.length > 0) {
+                info += '\n各場次狀態：\n' + sessionInfo.slice(0, 5).join('\n');
+                if(sessionInfo.length > 5) info += '\n...';
+            }
+            alert(info);
+        }
+        
+        function clearOldSessions() {
+            if(!confirm('確定要清除舊場次的簽到資料嗎？\n\n這會保留目前場次的資料，但刪除其他所有場次的簽名記錄。\n\n建議：先匯出 Excel 再執行！')) return;
+            
+            let currentSession = localStorage.getItem('s_currentSession');
+            let sessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+            
+            sessions.forEach(s => {
+                if(s !== currentSession) {
+                    localStorage.removeItem('s_signatures_' + s);
+                    localStorage.removeItem('s_leaves_' + s);
+                    localStorage.removeItem('s_volunteerLeaves_' + s);
+                    localStorage.removeItem('s_blankSignins_' + s);
+                }
+            });
+            
+            // 更新場次列表
+            sessions = sessions.filter(s => s === currentSession);
+            localStorage.setItem('s_allSessions', JSON.stringify(sessions));
+            
+            alert('已清除舊場次資料！\n現在可以使用約 ' + getStorageSize() + ' MB');
+        }
         
         // 統一的 saveSig 函數 - 處理學員、志工、空白簽到
         function saveSig() {
