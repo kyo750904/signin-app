@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.20 (115.4.9) - 修復數位志工簽到即時顯示</p>
+        <p>版本：v0.21 (115.4.9) - 簽到名單改為五人一行卡片式布局</p>
     </footer>
 
     <script>
@@ -738,7 +738,6 @@
         
         function renderVolunteerSigninList() {
             let query = document.getElementById('searchQueryVol').value.trim().toLowerCase();
-            // 數位志工簽到只顯示已勾選的志工
             let list = volunteers.filter(v => v.checked);
             if(query) list = list.filter(v => v.name.toLowerCase().includes(query));
             
@@ -748,21 +747,25 @@
                 return;
             }
             
-            let html = '<table style="width:100%;border-collapse:collapse;border:2px solid #000000;border-radius:10px;overflow:hidden;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">角色</th><th style="padding:14px;text-align:center;">請假</th><th style="padding:14px;text-align:center;">簽到</th></tr>';
+            // 五人一排的卡片式布局
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;width:100%;">';
             list.forEach((p,i) => {
                 let sig = signatures[p.id];
                 let leave = volunteerLeaves[p.id];
-                let bg = sig ? '#e8f5e9' : (leave ? '#fff3e0' : '#ffffff');
-                html += '<tr style="background:'+bg+';">';
-                html += '<td style="padding:14px;text-align:center;font-weight:bold;font-size: 30px;">'+(i+1)+'</td>';
-                html += '<td style="padding:14px;font-weight:bold;font-size: 30px;">'+p.name+'</td>';
-                html += '<td style="padding:14px;text-align:center;">'+(p.role||'數位志工')+'</td>';
-                html += '<td style="padding:14px;text-align:center;"><button onclick="toggleVolunteerLeave('+p.id+')" style="padding:10px 20px;background:'+(leave?'#ff9800':'#ffffff')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size: 30px;font-weight:bold;">'+(leave?'✓ 請假':'請假')+'</button></td>';
-                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:'+(sig?'#4caf50':'#000000')+';color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'志工簽到')+'</button></td>';
-                html += '</tr>';
+                let borderColor = sig ? '#4caf50' : (leave ? '#ff9800' : '#000000');
+                let statusBg = sig ? '#e8f5e9' : (leave ? '#fff3e0' : '#ffffff');
+                let statusText = sig ? '✓ 已簽到 ' + sig.time : (leave ? '✓ 請假' : '未簽到');
+                let btnColor = sig ? '#4caf50' : '#000000';
+                html += '<div style="background:'+statusBg+';border:3px solid '+borderColor+';border-radius:12px;padding:12px;text-align:center;">';
+                html += '<div style="font-size:30px;font-weight:bold;margin-bottom:4px;">'+p.name+'</div>';
+                html += '<div style="font-size:24px;color:#666;margin-bottom:8px;">'+(p.role||'數位志工')+'</div>';
+                html += '<div style="font-size:22px;color:'+borderColor+';font-weight:bold;margin-bottom:8px;">'+statusText+'</div>';
+                html += '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">';
+                html += '<button onclick="toggleVolunteerLeave('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+(leave?'#ff9800':'#f5f5f5')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(leave?'✓':'請')+'假</button>';
+                html += '<button onclick="openSig('+p.id+',\''+p.name+'\')" style="flex:1;min-width:60px;padding:8px 4px;background:'+btnColor+';color:white;border:none;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">簽到</button>';
+                html += '</div></div>';
             });
-            html += '</table>';
+            html += '</div>';
             document.getElementById('volunteerSigninList').innerHTML = html;
             let signedCount = Object.keys(signatures).filter(k => volunteers.some(v => v.id == k)).length;
             let leaveCount = Object.keys(volunteerLeaves).length;
@@ -1051,21 +1054,25 @@
                 return;
             }
             
-            let html = '<table style="width:100%;border-collapse:collapse;border:2px solid #000000;border-radius:10px;overflow:hidden;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:14px;">號</th><th style="padding:14px;">姓名</th><th style="padding:14px;text-align:center;">性別</th><th style="padding:14px;text-align:center;">請假</th><th style="padding:14px;text-align:center;">簽到</th></tr>';
+            // 五人一排的卡片式布局
+            let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;width:100%;">';
             list.forEach((p,i) => {
                 let sig = signatures[p.id];
                 let leave = leaves[p.id];
-                let bg = sig ? '#e8f5e9' : (leave ? '#fff3e0' : '#ffffff');
-                html += '<tr style="background:'+bg+';">';
-                html += '<td style="padding:14px;text-align:center;font-weight:bold;font-size: 30px;">'+(i+1)+'</td>';
-                html += '<td style="padding:14px;font-weight:bold;font-size: 30px;">'+p.name+'</td>';
-                html += '<td style="padding:14px;text-align:center;">'+(p.gender||'-')+'</td>';
-                html += '<td style="padding:14px;text-align:center;"><button onclick="toggleLeave('+p.id+')" style="padding:10px 20px;background:'+(leave?'#ff9800':'#ffffff')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size: 30px;font-weight:bold;">'+(leave?'✓ 請假':'請假')+'</button></td>';
-                html += '<td style="padding:14px;text-align:center;"><button onclick="openSig('+p.id+',\''+p.name+'\')" style="padding:10px 20px;background:'+(sig?'#4caf50':'#000000')+';color:white;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">'+(sig?'✓ '+sig.time:'學員簽到')+'</button></td>';
-                html += '</tr>';
+                let borderColor = sig ? '#4caf50' : (leave ? '#ff9800' : '#000000');
+                let statusBg = sig ? '#e8f5e9' : (leave ? '#fff3e0' : '#ffffff');
+                let statusText = sig ? '✓ 已簽到 ' + sig.time : (leave ? '✓ 請假' : '未簽到');
+                let btnColor = sig ? '#4caf50' : '#000000';
+                html += '<div style="background:'+statusBg+';border:3px solid '+borderColor+';border-radius:12px;padding:12px;text-align:center;">';
+                html += '<div style="font-size:30px;font-weight:bold;margin-bottom:4px;">'+p.name+'</div>';
+                html += '<div style="font-size:24px;color:#666;margin-bottom:8px;">'+(p.gender||'-')+'</div>';
+                html += '<div style="font-size:22px;color:'+borderColor+';font-weight:bold;margin-bottom:8px;">'+statusText+'</div>';
+                html += '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">';
+                html += '<button onclick="toggleLeave('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+(leave?'#ff9800':'#f5f5f5')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(leave?'✓':'請')+'假</button>';
+                html += '<button onclick="openSig('+p.id+',\''+p.name+'\')" style="flex:1;min-width:60px;padding:8px 4px;background:'+btnColor+';color:white;border:none;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">簽到</button>';
+                html += '</div></div>';
             });
-            html += '</table>';
+            html += '</div>';
             document.getElementById('studentList').innerHTML = html;
             // 統計有簽到或請假的人數
             let signedCount = Object.keys(signatures).length;
