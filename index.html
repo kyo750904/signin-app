@@ -269,6 +269,7 @@
                 <select id="sessionSelect" onchange="loadSession()" class="input" style="margin-bottom:8px;">
                     <option value="">-- 選擇場次 --</option>
                 </select>
+                <button onclick="deleteSession()" id="deleteSessionBtn" class="btn" style="width:100%;padding:10px;background:#cc0000;color:white;display:none;">🗑️ 刪除目前場次</button>
             </div>
             
             <div class="card">
@@ -414,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.18 (115.4.9) - Firebase Firestore 雲端同步</p>
+        <p>版本：v0.19 (115.4.9) - 新增刪除簽到場次功能</p>
     </footer>
 
     <script>
@@ -637,6 +638,8 @@
                 let label = s + (s === currentSession ? ' (目前)' : '');
                 sel.innerHTML += '<option value="'+s+'" '+(s === currentSession ? 'selected' : '')+'>'+label+'</option>';
             });
+            let delBtn = document.getElementById('deleteSessionBtn');
+            if(delBtn) delBtn.style.display = currentSession ? 'block' : 'none';
         }
 
         function createNewSession() {
@@ -657,8 +660,49 @@
         function loadSession() {
             let sel = document.getElementById('sessionSelect');
             let date = sel.value;
+            let delBtn = document.getElementById('deleteSessionBtn');
+            if(delBtn) delBtn.style.display = date ? 'block' : 'none';
             if(!date) return;
             localStorage.setItem('s_currentSession',date);
+            fbSet(FB_COL.SESSIONS + '/list', { list: allSessions, current: date });
+            location.reload();
+        }
+
+        function deleteSession() {
+            let sel = document.getElementById('sessionSelect');
+            let date = sel.value;
+            if(!date) { alert('請先選擇要刪除的場次'); return; }
+            if(!confirm('確定要刪除「' + date + '」場次嗎？\n\n⚠️ 這會清除該場次的所有簽到記錄（學員、志工、空白簽到）。\n\n建議：先到「簽到匯出」頁面匯出資料再刪除！')) return;
+            
+            // 刪除該場次的 localStorage 資料
+            localStorage.removeItem('s_signatures_' + date);
+            localStorage.removeItem('s_leaves_' + date);
+            localStorage.removeItem('s_volunteerLeaves_' + date);
+            localStorage.removeItem('s_blankSignins_' + date);
+            
+            // 從場次列表移除
+            let allSessions = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+            allSessions = allSessions.filter(s => s !== date);
+            localStorage.setItem('s_allSessions', JSON.stringify(allSessions));
+            
+            // Firestore 同步刪除
+            fbDelete(FB_COL.SESSIONS + '/list');
+            fbClear(FB_COL.SIGNATURES + '/' + date);
+            fbClear(FB_COL.LEAVES + '/' + date);
+            fbClear(FB_COL.VOLUNTEER_LEAVES + '/' + date);
+            fbClear(FB_COL.BLANK_SIGNINS + '/' + date);
+            
+            // 切換到最近一場
+            if(allSessions.length > 0) {
+                localStorage.setItem('s_currentSession', allSessions[0]);
+            } else {
+                // 沒有場次了，建立今天的
+                let today = new Date().toISOString().slice(0,10);
+                localStorage.setItem('s_currentSession', today);
+                localStorage.setItem('s_allSessions', JSON.stringify([today]));
+            }
+            
+            alert('已刪除場次 ' + date);
             location.reload();
         }
 
