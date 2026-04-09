@@ -1033,37 +1033,45 @@
         // 統一的 saveSig 函數 - 處理學員、志工、空白簽到
         function saveSig() {
             try {
+                console.log('saveSig called', {curSigId, curBlankIndex, sigPadExists: !!sigPad});
+                
                 if(!sigPad || sigPad.isEmpty()) { 
                     alert('請先簽名'); 
                     return; 
                 }
+                
                 let data = sigPad.toDataURL();
                 let time = new Date().toTimeString().substring(0,5);
                 
                 // 學員或志工簽到
                 if(curSigId !== null && curSigId !== undefined) {
+                    console.log('Saving student/volunteer sig for id:', curSigId);
                     signatures[curSigId] = {dataUrl:data, time:time};
                     localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
                     closeSigModal();
                     renderAll();
+                    alert('簽到成功！');
                     return;
                 }
                 
                 // 空白簽到
                 if(curBlankIndex !== null && curBlankIndex !== undefined) {
+                    console.log('Saving blank sig for index:', curBlankIndex);
                     blankSignins[curBlankIndex].signature = data;
                     blankSignins[curBlankIndex].time = time;
                     localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
                     closeSigModal();
                     renderAll();
+                    alert('簽到成功！');
                     return;
                 }
                 
                 // 如果都沒有符合的條件
+                console.log('No valid target', {curSigId, curBlankIndex});
                 alert('簽名失敗，請重試');
             } catch(e) {
                 console.error('saveSig error:', e);
-                alert('儲存簽名時發生錯誤');
+                alert('儲存簽名時發生錯誤: ' + e.message);
             }
         }
 
