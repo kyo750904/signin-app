@@ -403,7 +403,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.14 (115.3.9) - 簽名置中顯示</p>
+        <p>版本：v0.15 (115.4.9) - 修復簽到確認無動作問題</p>
     </footer>
 
     <script>
@@ -1022,21 +1022,48 @@
             sigPad = new SignaturePad(canvas, {backgroundColor:'white', penColor:'black'});
             if(signatures[id]) sigPad.fromDataURL(signatures[id].dataUrl);
         }
-        function closeSigModal() { document.getElementById('sigModal').classList.remove('active'); sigPad = null; curSigId = null; }
+        function closeSigModal() { 
+            document.getElementById('sigModal').classList.remove('active'); 
+            sigPad = null; 
+            curSigId = null;
+            curBlankIndex = null;
+        }
         function clearSig() { if(sigPad) sigPad.clear(); }
+        
+        // 統一的 saveSig 函數 - 處理學員、志工、空白簽到
         function saveSig() {
-            if(!sigPad || sigPad.isEmpty()) { alert('請先簽名'); return; }
-            let data = sigPad.toDataURL();
-            let time = new Date().toTimeString().substring(0,5);
-            signatures[curSigId] = {dataUrl:data, time:time};
-            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            closeSigModal();
-            
-            // 判斷目前在哪個分頁，只重新渲染該分頁
-            if(document.getElementById('signin-volunteer-content') && document.getElementById('signin-volunteer-content').style.display === 'block') {
-                renderVolunteerSigninList();
-            } else if(document.getElementById('signin-student-content') && document.getElementById('signin-student-content').style.display === 'block') {
-                renderStudentList();
+            try {
+                if(!sigPad || sigPad.isEmpty()) { 
+                    alert('請先簽名'); 
+                    return; 
+                }
+                let data = sigPad.toDataURL();
+                let time = new Date().toTimeString().substring(0,5);
+                
+                // 學員或志工簽到
+                if(curSigId !== null && curSigId !== undefined) {
+                    signatures[curSigId] = {dataUrl:data, time:time};
+                    localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+                    closeSigModal();
+                    renderAll();
+                    return;
+                }
+                
+                // 空白簽到
+                if(curBlankIndex !== null && curBlankIndex !== undefined) {
+                    blankSignins[curBlankIndex].signature = data;
+                    blankSignins[curBlankIndex].time = time;
+                    localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
+                    closeSigModal();
+                    renderAll();
+                    return;
+                }
+                
+                // 如果都沒有符合的條件
+                alert('簽名失敗，請重試');
+            } catch(e) {
+                console.error('saveSig error:', e);
+                alert('儲存簽名時發生錯誤');
             }
         }
 
@@ -1094,30 +1121,6 @@
             blankSignins.splice(index, 1);
             localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
             renderAll();
-        }
-
-        // Override saveSig to handle blank signins
-        const originalSaveSig = saveSig;
-        saveSig = function() {
-            if(!sigPad || sigPad.isEmpty()) { alert('請先簽名'); return; }
-            let data = sigPad.toDataURL();
-            let time = new Date().toTimeString().substring(0,5);
-            
-            if(curSigId !== null) {
-                // Original student signature
-                signatures[curSigId] = {dataUrl:data, time:time};
-                localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-                closeSigModal();
-                renderAll();
-            } else if(curBlankIndex !== null) {
-                // Blank signin signature
-                blankSignins[curBlankIndex].signature = data;
-                localStorage.setItem('s_blankSignins_' + currentSession,JSON.stringify(blankSignins));
-                document.getElementById('sigModal').classList.remove('active');
-                sigPad = null;
-                curBlankIndex = null;
-                renderAll();
-            }
         }
 
         function clearAllBlank() {
