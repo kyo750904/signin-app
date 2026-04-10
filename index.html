@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.29 (115.4.10) - 優化同步邏輯，刪除後自動重新整理</p>
+        <p>版本：v0.30 (115.4.10) - 修復同步語法錯誤，學員志工管理改為五人卡片佈局</p>
     </footer>
 
     <script>
@@ -658,26 +658,6 @@
                 console.warn('❌ Firebase 同步失敗:', e.message);
             }
         }
-                
-                // 同步請假資料
-                const leaveSnap = await fbDB.doc(FB_PATH.LEAVES + '_' + currentSession).get();
-                if (leaveSnap.exists) {
-                    let fbLeaves = leaveSnap.data();
-                    let mergedLeaves = { ...leaves, ...fbLeaves };
-                    localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(mergedLeaves));
-                    leaves = mergedLeaves;
-                }
-                
-                // 同步志工請假資料
-                const volLeaveSnap = await fbDB.doc(FB_PATH.VOLUNTEER_LEAVES + '_' + currentSession).get();
-                if (volLeaveSnap.exists) {
-                    let fbVolLeaves = volLeaveSnap.data();
-                    let mergedVolLeaves = { ...volunteerLeaves, ...fbVolLeaves };
-                    localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(mergedVolLeaves));
-                    volunteerLeaves = mergedVolLeaves;
-                }
-                
-
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
         
@@ -1144,19 +1124,15 @@
                 document.getElementById('manageList').innerHTML = '<p style="text-align:center;color:#999;">尚無學員</p>';
                 return;
             }
-            let html = '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:12px;text-align:center;">號</th><th style="padding:12px;">姓名</th><th style="padding:12px;text-align:center;">性別</th><th style="padding:12px;text-align:center;">勾選</th><th style="padding:12px;text-align:center;">刪除</th></tr>';
+            let html = '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;">';
             students.forEach((s,i) => {
-                let bg = s.checked ? '#ffffff' : '#ffffff';
-                html += '<tr style="background:'+bg+';cursor:pointer;" onclick="toggleStudent('+s.id+')">';
-                html += '<td style="padding:16px;text-align:center;font-weight:bold;">'+(i+1)+'</td>';
-                html += '<td style="padding:16px;font-weight:bold;font-size: 30px;">'+s.name+'</td>';
-                html += '<td style="padding:16px;text-align:center;">'+s.gender+'</td>';
-                html += '<td style="padding:16px;text-align:center;"><input type="checkbox" '+(s.checked?'checked':'')+' disabled></td>';
-                html += '<td style="padding:16px;text-align:center;"><button onclick="event.stopPropagation();deleteStudent('+s.id+')" style="padding:8px 16px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">🗑️</button></td>';
-                html += '</tr>';
+                html += '<div style="background:#ffffff;border-radius:12px;padding:16px 12px;min-width:120px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;flex:1 0 calc(20% - 10px);" onclick="toggleStudent('+s.id+')">';
+                html += '<div style="font-size:30px;font-weight:bold;">'+s.name+'</div>';
+                html += '<div style="font-size:20px;color:#666;">'+s.gender+'</div>';
+                html += '<button onclick="event.stopPropagation();deleteStudent('+s.id+')" style="margin-top:8px;padding:8px 12px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size: 24px;">🗑️</button>';
+                html += '</div>';
             });
-            html += '</table>';
+            html += '</div>';
             document.getElementById('manageList').innerHTML = html;
         }
 
@@ -1169,19 +1145,15 @@
                 document.getElementById('volunteerList').innerHTML = '<p style="text-align:center;color:#999;">尚無數位志工</p>';
                 return;
             }
-            let html = '<table style="width:100%;border-collapse:collapse;font-size: 30px;">';
-            html += '<tr style="background:#000000;color:white;"><th style="padding:12px;text-align:center;">號</th><th style="padding:12px;">姓名</th><th style="padding:12px;text-align:center;">角色</th><th style="padding:12px;text-align:center;">勾選</th><th style="padding:12px;text-align:center;">刪除</th></tr>';
+            let html = '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;">';
             filtered.forEach((v,i) => {
-                let bg = v.checked ? '#ffffff' : '#ffffff';
-                html += '<tr style="background:'+bg+';cursor:pointer;" onclick="toggleVolunteer('+v.id+')">';
-                html += '<td style="padding:16px;text-align:center;font-weight:bold;">'+(i+1)+'</td>';
-                html += '<td style="padding:16px;font-weight:bold;font-size: 30px;">'+v.name+'</td>';
-                html += '<td style="padding:16px;text-align:center;">'+(v.role||'數位志工')+'</td>';
-                html += '<td style="padding:16px;text-align:center;"><input type="checkbox" '+(v.checked?'checked':'')+' disabled></td>';
-                html += '<td style="padding:16px;text-align:center;"><button onclick="event.stopPropagation();deleteVolunteer('+v.id+')" style="padding:8px 16px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size: 30px;">🗑️</button></td>';
-                html += '</tr>';
+                html += '<div style="background:#ffffff;border-radius:12px;padding:16px 12px;min-width:120px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;flex:1 0 calc(20% - 10px);" onclick="toggleVolunteer('+v.id+')">';
+                html += '<div style="font-size:30px;font-weight:bold;">'+v.name+'</div>';
+                html += '<div style="font-size:20px;color:#666;">'+(v.role||'數位志工')+'</div>';
+                html += '<button onclick="event.stopPropagation();deleteVolunteer('+v.id+')" style="margin-top:8px;padding:8px 12px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size: 24px;">🗑️</button>';
+                html += '</div>';
             });
-            html += '</table>';
+            html += '</div>';
             document.getElementById('volunteerList').innerHTML = html;
         }
 
