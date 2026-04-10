@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.39 (115.4.10) - 新增學員去重複功能，修復同步重疊問題</p>
+        <p>版本：v0.40 (115.4.10) - 修復新增學員重複問題，以名字去重</p>
     </footer>
 
     <script>
@@ -1018,17 +1018,28 @@
             const names30 = names20.concat([{n:'李美珠',g:'女'},{n:'劉文雄',g:'男'},{n:'黃春蘭',g:'女'},{n:'許光明',g:'男'},{n:'吳彩雲',g:'女'},{n:'鄭國樑',g:'男'},{n:'王素芬',g:'女'},{n:'陳志豪',g:'男'},{n:'林怡君',g:'女'},{n:'張家銘',g:'男'}]);
             let list = n===20?names20:n===30?names30:names10;
             let added = 0;
+            // 以名字為 key 去重複
+            let nameMap = {};
+            students.forEach(s => nameMap[s.name] = s);
             list.forEach(d => {
-                if(!students.some(s => s.name === d.n)) {
+                if(!nameMap[d.n]) {
                     let newStudent = {id:Date.now()+added, name:d.n, gender:d.g, checked:true};
                     students.push(newStudent);
+                    nameMap[d.n] = newStudent;
                     added++;
                 }
+            });
+            // 去重複後再寫入
+            let seen = {};
+            students = students.filter(s => {
+                if (seen[s.name]) return false;
+                seen[s.name] = true;
+                return true;
             });
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
-            alert('已載入 ' + added + ' 位');
+            alert('已載入 ' + added + ' 位（目前共 ' + students.length + ' 位）');
         }
         
         // 清理學員重複（手動執行）
