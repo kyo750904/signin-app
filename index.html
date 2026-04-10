@@ -780,7 +780,9 @@
             allSessions.sort().reverse();
             localStorage.setItem('s_allSessions',JSON.stringify(allSessions));
             localStorage.setItem('s_currentSession',date);
-            location.reload();
+            // 先同步到 Firebase，等一下再 reload
+            fbSet(FB_PATH.SESSIONS, { list: allSessions, current: date });
+            setTimeout(() => { location.reload(); }, 500);
         }
 
         function loadSession() {
@@ -791,7 +793,7 @@
             if(!date) return;
             localStorage.setItem('s_currentSession',date);
             fbSet(FB_PATH.SESSIONS, { list: allSessions, current: date });
-            location.reload();
+            setTimeout(() => { location.reload(); }, 500);
         }
 
         function deleteSession() {
