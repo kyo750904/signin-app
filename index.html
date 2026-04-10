@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.30 (115.4.10) - 修復同步語法錯誤，學員志工管理改為五人卡片佈局</p>
+        <p>版本：v0.32 (115.4.10) - 同步改為每2秒，強制從伺服器讀取</p>
     </footer>
 
     <script>
@@ -478,12 +478,12 @@
             }
         })();
         
-        // 每 3 秒自動同步一次（確保跨裝置即時更新）
+        // 每 2 秒自動同步一次（確保跨裝置即時更新）
         setInterval(() => {
             if (fbReady && fbDB) {
                 syncFromFirebase();
             }
-        }, 3000);
+        }, 2000);
         
         // Firestore 路徑常數
         const FB_PATH = {
@@ -571,12 +571,12 @@
                 return;
             }
             try {
-                // 同時讀取所有需要同步的資料
+                // 同時讀取所有需要同步的資料（從伺服器取得，不使用快取）
                 const [stuSnap, volSnap, sessSnap, sigSnap] = await Promise.all([
-                    fbDB.doc(FB_PATH.STUDENTS).get(),
-                    fbDB.doc(FB_PATH.VOLUNTEERS).get(),
-                    fbDB.doc(FB_PATH.SESSIONS).get(),
-                    fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get()
+                    fbDB.doc(FB_PATH.STUDENTS).get({ source: 'server' }),
+                    fbDB.doc(FB_PATH.VOLUNTEERS).get({ source: 'server' }),
+                    fbDB.doc(FB_PATH.SESSIONS).get({ source: 'server' }),
+                    fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get({ source: 'server' })
                 ]);
                 
                 // 計算資料hash用於比較是否有變化
