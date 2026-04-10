@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.40 (115.4.10) - 修復新增學員重複問題，以名字去重</p>
+        <p>版本：v0.41 (115.4.10) - 以名字當 Firebase key，徹底解決重複問題</p>
     </footer>
 
     <script>
@@ -604,7 +604,10 @@
                 // 同步學員名單（去重複）
                 if (stuSnap.exists) {
                     let fbData = stuSnap.data();
-                    let newStudents = Object.values(fbData);
+                    // 用名字當 key，去掉重複
+                    let newStudentsMap = {};
+                    Object.values(fbData).forEach(s => { newStudentsMap[s.name] = s; });
+                    let newStudents = Object.values(newStudentsMap);
                     // 去重複：以 ID 為 key
                     let seen = {};
                     newStudents = newStudents.filter(s => {
@@ -622,7 +625,10 @@
                 // 同步志工名單（去重複）
                 if (volSnap.exists) {
                     let fbData = volSnap.data();
-                    let newVolunteers = Object.values(fbData);
+                    // 用名字當 key，去掉重複
+                    let newVolunteersMap = {};
+                    Object.values(fbData).forEach(v => { newVolunteersMap[v.name] = v; });
+                    let newVolunteers = Object.values(newVolunteersMap);
                     // 去重複：以 ID 為 key
                     let seen = {};
                     newVolunteers = newVolunteers.filter(v => {
@@ -980,9 +986,9 @@
             let newStudent = {id:Date.now(), name, gender, checked:true};
             students.push(newStudent);
             // 去重複
-            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
             document.getElementById('newStudentName').value = '';
             renderAll();
         }
@@ -991,7 +997,7 @@
             if(s) {
                 s.checked = !s.checked;
                 localStorage.setItem('s_students',JSON.stringify(students));
-                fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
+                fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.name]: st }), {}));
                 renderAll();
             }
         }
@@ -1001,7 +1007,7 @@
             delete signatures[id];
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.name]: st }), {}));
             renderAll();
         }
         function clearAllStudents() {
@@ -1036,7 +1042,7 @@
                 seen[s.name] = true;
                 return true;
             });
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位（目前共 ' + students.length + ' 位）');
@@ -1054,7 +1060,7 @@
             });
             let cleaned = originalCount - students.length;
             localStorage.setItem('s_students', JSON.stringify(students));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
             alert('已清理 ' + cleaned + ' 位重複學員，目前共 ' + students.length + ' 位');
             renderAll();
         }
@@ -1073,8 +1079,8 @@
                 }
             });
             // 去重複
-            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位學員');
@@ -1088,7 +1094,7 @@
             let newVol = {id:Date.now(), name, role, checked:true};
             volunteers.push(newVol);
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
+            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.name]: v }), {}));
             document.getElementById('newVolunteerName').value = '';
             renderAll();
         }
@@ -1097,7 +1103,7 @@
             if(v) {
                 v.checked = !v.checked;
                 localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.id]: vol }), {}));
+                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.name]: vol }), {}));
                 renderAll();
             }
         }
@@ -1111,7 +1117,7 @@
             if(!confirm('確定刪除？')) return;
             volunteers = volunteers.filter(v => v.id !== id);
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.id]: vol }), {}));
+            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.name]: vol }), {}));
             renderAll();
         }
 
