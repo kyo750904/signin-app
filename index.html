@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.32 (115.4.10) - 同步改為每2秒，強制從伺服器讀取</p>
+        <p>版本：v0.33 (115.4.10) - 已簽到/請假的學員排到最上面</p>
     </footer>
 
     <script>
@@ -1170,6 +1170,18 @@
                 document.getElementById('totalCount').innerText = '共 0 人';
                 return;
             }
+            
+            // 已簽到/請假的排前面
+            list.sort((a, b) => {
+                let aSigned = !!signatures[a.id];
+                let bSigned = !!signatures[b.id];
+                let aLeave = !!leaves[a.id];
+                let bLeave = !!leaves[b.id];
+                // 優先：已簽到 > 已請假 > 未簽到
+                if (aSigned !== bSigned) return bSigned - aSigned;
+                if (aLeave !== bLeave) return bLeave - aLeave;
+                return 0;
+            });
             
             // 五人一排的卡片式布局
             let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;width:100%;">';
