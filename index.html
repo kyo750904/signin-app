@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.25 (115.4.10) - 修復 Firebase 跨裝置同步問題</p>
+        <p>版本：v0.26 (115.4.10) - 新增 Firebase 偵錯訊息</p>
     </footer>
 
     <script>
@@ -488,29 +488,38 @@
         
         // 非同步寫入 Firestore（失敗不影響 localStorage）
         function fbSet(docPath, data) {
-            if (!fbReady || !fbDB) return;
-            setTimeout(() => {
-                try {
-                    fbDB.doc(docPath).set(data, { merge: true }).catch(() => {});
-                } catch(e) {}
-            }, 0);
+            if (!fbReady || !fbDB) {
+                console.warn('⚠️ Firebase 未就緒，寫入跳過:', docPath);
+                return;
+            }
+            if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
+                console.warn('⚠️ Firebase 寫入資料為空，跳過:', docPath);
+                return;
+            }
+            try {
+                fbDB.doc(docPath).set(data, { merge: true })
+                    .then(() => console.log('📤 Firebase 寫入成功:', docPath))
+                    .catch(e => console.warn('❌ Firebase 寫入失敗:', docPath, e.message));
+            } catch(e) {
+                console.warn('❌ Firebase 寫入異常:', docPath, e.message);
+            }
         }
         function fbDelete(docPath) {
             if (!fbReady || !fbDB) return;
-            setTimeout(() => {
-                try {
-                    fbDB.doc(docPath).delete().catch(() => {});
-                } catch(e) {}
-            }, 0);
+            try {
+                fbDB.doc(docPath).delete()
+                    .then(() => console.log('🗑️ Firebase 刪除成功:', docPath))
+                    .catch(e => console.warn('❌ Firebase 刪除失敗:', docPath, e.message));
+            } catch(e) {}
         }
         // 清除 Firestore 中特定文件（設為空物件）
         function fbClear(docPath) {
             if (!fbReady || !fbDB) return;
-            setTimeout(() => {
-                try {
-                    fbDB.doc(docPath).set({}, { merge: false }).catch(() => {});
-                } catch(e) {}
-            }, 0);
+            try {
+                fbDB.doc(docPath).set({}, { merge: false })
+                    .then(() => console.log('🧹 Firebase 清除成功:', docPath))
+                    .catch(e => console.warn('❌ Firebase 清除失敗:', docPath, e.message));
+            } catch(e) {}
         }
         
         // Data
@@ -537,7 +546,11 @@
         // 從 Firestore 同步資料（讀取其他裝置的資料）
         // 初始同步（單次讀取）
         async function syncFromFirebase() {
-            if (!fbReady || !fbDB) return;
+            if (!fbReady || !fbDB) {
+                console.warn('⚠️ Firebase 未就緒，無法同步');
+                return;
+            }
+            console.log('🔄 開始 Firebase 同步...');
             try {
                 // 同步學員名單
                 const stuSnap = await fbDB.doc(FB_PATH.STUDENTS).get();
@@ -547,6 +560,9 @@
                     localStorage.setItem('s_students', JSON.stringify(newStudents));
                     students = newStudents;
                     students.forEach(s => { if (s.checked === undefined) s.checked = true; });
+                    console.log('📥 同步學員:', newStudents.length, '位');
+                } else {
+                    console.log('📭 Firebase 沒有學員資料');
                 }
                 
                 // 同步志工名單
@@ -557,6 +573,9 @@
                     localStorage.setItem('s_volunteers', JSON.stringify(newVolunteers));
                     volunteers = newVolunteers;
                     volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
+                    console.log('📥 同步志工:', newVolunteers.length, '位');
+                } else {
+                    console.log('📭 Firebase 沒有志工資料');
                 }
                 
                 // 同步課程資料
@@ -583,6 +602,9 @@
                     let mergedSigs = { ...signatures, ...fbSigs };
                     localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(mergedSigs));
                     signatures = mergedSigs;
+                    console.log('📥 同步簽到:', Object.keys(fbSigs).length, '筆記錄');
+                } else {
+                    console.log('📭 Firebase 沒有簽到資料 (場次:', currentSession, ')');
                 }
                 
                 // 同步請假資料
