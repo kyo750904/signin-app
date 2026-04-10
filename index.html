@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.34 (115.4.10) - 關閉學員志工名單自動同步，保留簽到同步</p>
+        <p>版本：v0.37 (115.4.10) - 開啟學員/志工/簽到/場次全部自動同步</p>
     </footer>
 
     <script>
@@ -571,14 +571,18 @@
                 return;
             }
             try {
-                // 只同步場次和簽到資料（學員/志工名單不同步，保留本地管理）
-                const [sessSnap, sigSnap] = await Promise.all([
+                // 同步所有資料
+                const [stuSnap, volSnap, sessSnap, sigSnap] = await Promise.all([
+                    fbDB.doc(FB_PATH.STUDENTS).get({ source: 'server' }),
+                    fbDB.doc(FB_PATH.VOLUNTEERS).get({ source: 'server' }),
                     fbDB.doc(FB_PATH.SESSIONS).get({ source: 'server' }),
                     fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get({ source: 'server' })
                 ]);
                 
                 // 計算資料hash用於比較是否有變化
                 let dataHash = JSON.stringify({
+                    students: stuSnap.exists ? stuSnap.data() : null,
+                    volunteers: volSnap.exists ? volSnap.data() : null,
                     sessions: sessSnap.exists ? sessSnap.data() : null,
                     signatures: sigSnap.exists ? sigSnap.data() : null
                 });
@@ -590,6 +594,28 @@
                 lastSyncHash = dataHash;
                 
                 let hasChanges = false;
+                
+                // 同步學員名單
+                if (stuSnap.exists) {
+                    let fbData = stuSnap.data();
+                    let newStudents = Object.values(fbData);
+                    localStorage.setItem('s_students', JSON.stringify(newStudents));
+                    students = newStudents;
+                    students.forEach(s => { if (s.checked === undefined) s.checked = true; });
+                    console.log('📥 同步學員:', newStudents.length, '位');
+                    hasChanges = true;
+                }
+                
+                // 同步志工名單
+                if (volSnap.exists) {
+                    let fbData = volSnap.data();
+                    let newVolunteers = Object.values(fbData);
+                    localStorage.setItem('s_volunteers', JSON.stringify(newVolunteers));
+                    volunteers = newVolunteers;
+                    volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
+                    console.log('📥 同步志工:', newVolunteers.length, '位');
+                    hasChanges = true;
+                }
                 
                 // 同步場次列表
                 if (sessSnap.exists) {
