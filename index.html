@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.43 (115.4.10) - 清除學員功能同步 Firebase</p>
+        <p>版本：v0.44 (115.4.10) - 新增一鍵清除 Firebase 學員功能</p>
     </footer>
 
     <script>
@@ -706,6 +706,21 @@
             } catch(e) {
                 console.warn('❌ Firebase 同步失敗:', e.message);
             }
+        }
+        
+        // 自動清除 Firebase 學員資料（一開始執行一次就好）
+        if (localStorage.getItem('autoClearStudents') !== 'done') {
+            setTimeout(() => {
+                if (confirm('即將清除 Firebase 學員資料！\n\n按「確定」繼續。')) {
+                    fbSet(FB_PATH.STUDENTS, {}).then(() => {
+                        localStorage.setItem('autoClearStudents', 'done');
+                        alert('Firebase 學員資料已清除！請重新整理頁面。');
+                        location.reload();
+                    });
+                } else {
+                    localStorage.setItem('autoClearStudents', 'done');
+                }
+            }, 1000);
         }
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
