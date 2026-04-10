@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.44 (115.4.10) - 新增一鍵清除 Firebase 學員功能</p>
+        <p>版本：v0.34 (115.4.10) - 關閉學員志工名單自動同步，保留簽到同步</p>
     </footer>
 
     <script>
@@ -459,7 +459,6 @@
                         .then(() => { fbReady = true; console.log('Firebase 離線持久化已開啟'); 
                             // 延遲同步，等離線資料載入完成
                             setTimeout(syncFromFirebase, 1500);
-                            // 清除 Firebase 重複學員（一次性）
                         })
                         .catch(err => {
                             if (err.code === 'failed-precondition' || err.code === 'unimplemented') {
@@ -470,7 +469,6 @@
                             fbReady = true;
                             // 延遲同步
                             setTimeout(syncFromFirebase, 1500);
-                            // 清除 Firebase 重複學員（一次性）
                         });
                 } else {
                     console.warn('Firebase SDK 未成功載入，僅使用本地模式');
@@ -573,26 +571,16 @@
                 return;
             }
             try {
-                // 同步所有資料
-                const [stuSnap, volSnap, sessSnap, sigSnap, leaveSnap, volLeaveSnap, blankSnap] = await Promise.all([
-                    fbDB.doc(FB_PATH.STUDENTS).get({ source: 'server' }),
-                    fbDB.doc(FB_PATH.VOLUNTEERS).get({ source: 'server' }),
+                // 只同步場次和簽到資料（學員/志工名單不同步，保留本地管理）
+                const [sessSnap, sigSnap] = await Promise.all([
                     fbDB.doc(FB_PATH.SESSIONS).get({ source: 'server' }),
-                    fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get({ source: 'server' }),
-                    fbDB.doc(FB_PATH.LEAVES + '_' + currentSession).get({ source: 'server' }),
-                    fbDB.doc(FB_PATH.VOLUNTEER_LEAVES + '_' + currentSession).get({ source: 'server' }),
-                    fbDB.doc(FB_PATH.BLANK_SIGNINS + '_' + currentSession).get({ source: 'server' })
+                    fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get({ source: 'server' })
                 ]);
                 
                 // 計算資料hash用於比較是否有變化
                 let dataHash = JSON.stringify({
-                    students: stuSnap.exists ? stuSnap.data() : null,
-                    volunteers: volSnap.exists ? volSnap.data() : null,
                     sessions: sessSnap.exists ? sessSnap.data() : null,
-                    signatures: sigSnap.exists ? sigSnap.data() : null,
-                    leaves: leaveSnap.exists ? leaveSnap.data() : null,
-                    volunteerLeaves: volLeaveSnap.exists ? volLeaveSnap.data() : null,
-                    blankSignins: blankSnap.exists ? blankSnap.data() : null
+                    signatures: sigSnap.exists ? sigSnap.data() : null
                 });
                 
                 // 如果資料沒變化就不更新
@@ -602,48 +590,6 @@
                 lastSyncHash = dataHash;
                 
                 let hasChanges = false;
-                
-                // 同步學員名單（去重複）
-                if (stuSnap.exists) {
-                    let fbData = stuSnap.data();
-                    // 用名字當 key，去掉重複
-                    let newStudentsMap = {};
-                    Object.values(fbData).forEach(s => { newStudentsMap[s.name] = s; });
-                    let newStudents = Object.values(newStudentsMap);
-                    // 去重複：以 ID 為 key
-                    let seen = {};
-                    newStudents = newStudents.filter(s => {
-                        if (seen[s.id]) return false;
-                        seen[s.id] = true;
-                        return true;
-                    });
-                    localStorage.setItem('s_students', JSON.stringify(newStudents));
-                    students = newStudents;
-                    students.forEach(s => { if (s.checked === undefined) s.checked = true; });
-                    console.log('📥 同步學員:', newStudents.length, '位');
-                    hasChanges = true;
-                }
-                
-                // 同步志工名單（去重複）
-                if (volSnap.exists) {
-                    let fbData = volSnap.data();
-                    // 用名字當 key，去掉重複
-                    let newVolunteersMap = {};
-                    Object.values(fbData).forEach(v => { newVolunteersMap[v.name] = v; });
-                    let newVolunteers = Object.values(newVolunteersMap);
-                    // 去重複：以 ID 為 key
-                    let seen = {};
-                    newVolunteers = newVolunteers.filter(v => {
-                        if (seen[v.id]) return false;
-                        seen[v.id] = true;
-                        return true;
-                    });
-                    localStorage.setItem('s_volunteers', JSON.stringify(newVolunteers));
-                    volunteers = newVolunteers;
-                    volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
-                    console.log('📥 同步志工:', newVolunteers.length, '位');
-                    hasChanges = true;
-                }
                 
                 // 同步場次列表
                 if (sessSnap.exists) {
@@ -670,33 +616,6 @@
                     }
                 }
                 
-                // 同步請假資料
-                if (leaveSnap.exists) {
-                    let fbLeaves = leaveSnap.data();
-                    localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(fbLeaves));
-                    leaves = fbLeaves;
-                    console.log('📥 同步請假');
-                    hasChanges = true;
-                }
-                
-                // 同步志工請假資料
-                if (volLeaveSnap.exists) {
-                    let fbVolLeaves = volLeaveSnap.data();
-                    localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(fbVolLeaves));
-                    volunteerLeaves = fbVolLeaves;
-                    console.log('📥 同步志工請假');
-                    hasChanges = true;
-                }
-                
-                // 同步空白簽到
-                if (blankSnap.exists) {
-                    let fbBlank = blankSnap.data().list || [];
-                    localStorage.setItem('s_blankSignins_' + currentSession, JSON.stringify(fbBlank));
-                    blankSignins = fbBlank;
-                    console.log('📥 同步空白簽到:', fbBlank.length, '筆');
-                    hasChanges = true;
-                }
-                
                 // 如果有變化就重新渲染 UI
                 if (hasChanges) {
                     console.log('🔄 Firebase 有更新，重新渲染...');
@@ -706,21 +625,6 @@
             } catch(e) {
                 console.warn('❌ Firebase 同步失敗:', e.message);
             }
-        }
-        
-        // 自動清除 Firebase 學員和志工資料（一開始執行一次就好）
-        if (localStorage.getItem('autoClearStudents') !== 'done') {
-            setTimeout(() => {
-                if (confirm('即將清除 Firebase 學員和志工資料！\n\n按「確定」繼續。')) {
-                    fbSet(FB_PATH.STUDENTS, {});
-                    fbSet(FB_PATH.VOLUNTEERS, {});
-                    localStorage.setItem('autoClearStudents', 'done');
-                    alert('Firebase 學員和志工資料已清除！請重新整理頁面。');
-                    location.reload();
-                } else {
-                    localStorage.setItem('autoClearStudents', 'done');
-                }
-            }, 1000);
         }
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
@@ -1002,10 +906,8 @@
             if(!name) { alert('請輸入姓名'); return; }
             let newStudent = {id:Date.now(), name, gender, checked:true};
             students.push(newStudent);
-            // 去重複
-            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             document.getElementById('newStudentName').value = '';
             renderAll();
         }
@@ -1014,7 +916,7 @@
             if(s) {
                 s.checked = !s.checked;
                 localStorage.setItem('s_students',JSON.stringify(students));
-                fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.name]: st }), {}));
+                fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
                 renderAll();
             }
         }
@@ -1024,19 +926,16 @@
             delete signatures[id];
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.name]: st }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             renderAll();
         }
         function clearAllStudents() {
-            if(!confirm('確定清除所有學員？（包含 Firebase）')) return;
+            if(!confirm('確定清除所有學員？')) return;
             students = [];
             signatures = {};
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            fbSet(FB_PATH.STUDENTS, {});
-            fbSet(FB_PATH.SIGNATURES + '_' + currentSession, {});
             renderAll();
-            alert('已清除所有學員！');
         }
         function loadDemo(n) {
             const names10 = [{n:'王美華',g:'女'},{n:'陳素雲',g:'女'},{n:'林水木',g:'男'},{n:'黃金土',g:'男'},{n:'李牡丹',g:'女'},{n:'張慶祥',g:'男'},{n:'劉美玲',g:'女'},{n:'羅大文',g:'男'},{n:'吳月娥',g:'女'},{n:'鄭清泉',g:'男'}];
@@ -1044,51 +943,23 @@
             const names30 = names20.concat([{n:'李美珠',g:'女'},{n:'劉文雄',g:'男'},{n:'黃春蘭',g:'女'},{n:'許光明',g:'男'},{n:'吳彩雲',g:'女'},{n:'鄭國樑',g:'男'},{n:'王素芬',g:'女'},{n:'陳志豪',g:'男'},{n:'林怡君',g:'女'},{n:'張家銘',g:'男'}]);
             let list = n===20?names20:n===30?names30:names10;
             let added = 0;
-            // 以名字為 key 去重複
-            let nameMap = {};
-            students.forEach(s => nameMap[s.name] = s);
             list.forEach(d => {
-                if(!nameMap[d.n]) {
+                if(!students.some(s => s.name === d.n)) {
                     let newStudent = {id:Date.now()+added, name:d.n, gender:d.g, checked:true};
                     students.push(newStudent);
-                    nameMap[d.n] = newStudent;
                     added++;
                 }
             });
-            // 去重複後再寫入
-            let seen = {};
-            students = students.filter(s => {
-                if (seen[s.name]) return false;
-                seen[s.name] = true;
-                return true;
-            });
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
-            alert('已載入 ' + added + ' 位（目前共 ' + students.length + ' 位）');
-        }
-        
-        // 清理學員重複（手動執行）
-        function cleanupDuplicateStudents() {
-            // 去重複
-            let seen = {};
-            let originalCount = students.length;
-            students = students.filter(s => {
-                if (seen[s.id]) return false;
-                seen[s.id] = true;
-                return true;
-            });
-            let cleaned = originalCount - students.length;
-            localStorage.setItem('s_students', JSON.stringify(students));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
-            alert('已清理 ' + cleaned + ' 位重複學員，目前共 ' + students.length + ' 位');
-            renderAll();
+            alert('已載入 ' + added + ' 位');
         }
         
         // 2026年3月 新學員名單
         function loadStudents2026() {
             const newStudents = [
-                {n:'王芬英',g:'女'},{n:'黃寶怡',g:'女'},{n:'陳雪珠',g:'女'},{n:'陳暉琳',g:'女'},{n:'林思儒',g:'女'},{n:'林曼萍',g:'女'},{n:'張翠蓮',g:'女'},{n:'王惠姿',g:'女'},{n:'方秀惠',g:'女'},{n:'黃譯慧',g:'女'},{n:'張亦鵬',g:'女'},{n:'曾玉女',g:'女'},{n:'林桂榮',g:'女'},{n:'廖振隆',g:'男'},{n:'許淑珍',g:'女'},{n:'許惠玲',g:'女'},{n:'高瑞嬌',g:'女'},{n:'高惠貞',g:'女'},{n:'曾美玲',g:'女'}
+                {n:'王芬英',g:'女'},{n:'黃寶怡',g:'女'},{n:'陳雪珠',g:'女'},{n:'陳暉琳',g:'女'},{n:'林思儒',g:'女'},{n:'林曼萍',g:'女'},{n:'張翠蓮',g:'女'},{n:'王惠姿',g:'女'},{n:'方秀惠',g:'女'},{n:'黃譯慧',g:'女'},{n:'張亦鵬',g:'女'},{n:'曾玉女',g:'女'},{n:'林桂榮',g:'女'},{n:'廖振隆',g:'男'},{n:'許淑珍',g:'女'},{n:'許惠玲',g:'女'},{n:'高瑞嬌',g:'女'},{n:'高惠貞',g:'女'},{n:'高瑞嬌',g:'女'},{n:'曾美玲',g:'女'}
             ];
             let added = 0;
             newStudents.forEach(d => {
@@ -1098,9 +969,7 @@
                     added++;
                 }
             });
-            // 去重複
-            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.name]: s }), {}));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位學員');
@@ -1114,7 +983,7 @@
             let newVol = {id:Date.now(), name, role, checked:true};
             volunteers.push(newVol);
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.name]: v }), {}));
+            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
             document.getElementById('newVolunteerName').value = '';
             renderAll();
         }
@@ -1123,7 +992,7 @@
             if(v) {
                 v.checked = !v.checked;
                 localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.name]: vol }), {}));
+                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.id]: vol }), {}));
                 renderAll();
             }
         }
@@ -1137,7 +1006,7 @@
             if(!confirm('確定刪除？')) return;
             volunteers = volunteers.filter(v => v.id !== id);
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.name]: vol }), {}));
+            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, vol) => ({ ...acc, [vol.id]: vol }), {}));
             renderAll();
         }
 
