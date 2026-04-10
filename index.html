@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.38 (115.4.10) - 全部資料同步：學員/志工/簽到/請假/場次/空白簽到</p>
+        <p>版本：v0.39 (115.4.10) - 新增學員去重複功能，修復同步重疊問題</p>
     </footer>
 
     <script>
@@ -601,10 +601,17 @@
                 
                 let hasChanges = false;
                 
-                // 同步學員名單
+                // 同步學員名單（去重複）
                 if (stuSnap.exists) {
                     let fbData = stuSnap.data();
                     let newStudents = Object.values(fbData);
+                    // 去重複：以 ID 為 key
+                    let seen = {};
+                    newStudents = newStudents.filter(s => {
+                        if (seen[s.id]) return false;
+                        seen[s.id] = true;
+                        return true;
+                    });
                     localStorage.setItem('s_students', JSON.stringify(newStudents));
                     students = newStudents;
                     students.forEach(s => { if (s.checked === undefined) s.checked = true; });
@@ -612,10 +619,17 @@
                     hasChanges = true;
                 }
                 
-                // 同步志工名單
+                // 同步志工名單（去重複）
                 if (volSnap.exists) {
                     let fbData = volSnap.data();
                     let newVolunteers = Object.values(fbData);
+                    // 去重複：以 ID 為 key
+                    let seen = {};
+                    newVolunteers = newVolunteers.filter(v => {
+                        if (seen[v.id]) return false;
+                        seen[v.id] = true;
+                        return true;
+                    });
                     localStorage.setItem('s_volunteers', JSON.stringify(newVolunteers));
                     volunteers = newVolunteers;
                     volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
@@ -965,6 +979,8 @@
             if(!name) { alert('請輸入姓名'); return; }
             let newStudent = {id:Date.now(), name, gender, checked:true};
             students.push(newStudent);
+            // 去重複
+            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             document.getElementById('newStudentName').value = '';
@@ -1015,10 +1031,27 @@
             alert('已載入 ' + added + ' 位');
         }
         
+        // 清理學員重複（手動執行）
+        function cleanupDuplicateStudents() {
+            // 去重複
+            let seen = {};
+            let originalCount = students.length;
+            students = students.filter(s => {
+                if (seen[s.id]) return false;
+                seen[s.id] = true;
+                return true;
+            });
+            let cleaned = originalCount - students.length;
+            localStorage.setItem('s_students', JSON.stringify(students));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            alert('已清理 ' + cleaned + ' 位重複學員，目前共 ' + students.length + ' 位');
+            renderAll();
+        }
+        
         // 2026年3月 新學員名單
         function loadStudents2026() {
             const newStudents = [
-                {n:'王芬英',g:'女'},{n:'黃寶怡',g:'女'},{n:'陳雪珠',g:'女'},{n:'陳暉琳',g:'女'},{n:'林思儒',g:'女'},{n:'林曼萍',g:'女'},{n:'張翠蓮',g:'女'},{n:'王惠姿',g:'女'},{n:'方秀惠',g:'女'},{n:'黃譯慧',g:'女'},{n:'張亦鵬',g:'女'},{n:'曾玉女',g:'女'},{n:'林桂榮',g:'女'},{n:'廖振隆',g:'男'},{n:'許淑珍',g:'女'},{n:'許惠玲',g:'女'},{n:'高瑞嬌',g:'女'},{n:'高惠貞',g:'女'},{n:'高瑞嬌',g:'女'},{n:'曾美玲',g:'女'}
+                {n:'王芬英',g:'女'},{n:'黃寶怡',g:'女'},{n:'陳雪珠',g:'女'},{n:'陳暉琳',g:'女'},{n:'林思儒',g:'女'},{n:'林曼萍',g:'女'},{n:'張翠蓮',g:'女'},{n:'王惠姿',g:'女'},{n:'方秀惠',g:'女'},{n:'黃譯慧',g:'女'},{n:'張亦鵬',g:'女'},{n:'曾玉女',g:'女'},{n:'林桂榮',g:'女'},{n:'廖振隆',g:'男'},{n:'許淑珍',g:'女'},{n:'許惠玲',g:'女'},{n:'高瑞嬌',g:'女'},{n:'高惠貞',g:'女'},{n:'曾美玲',g:'女'}
             ];
             let added = 0;
             newStudents.forEach(d => {
@@ -1028,6 +1061,8 @@
                     added++;
                 }
             });
+            // 去重複
+            students = Object.values(students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
