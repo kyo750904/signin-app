@@ -1,0 +1,14 @@
+<script>
+// 清除 Firebase 學員資料（一次性）
+function clearFirebaseStudents() {
+    if (!confirm('確定要清除 Firebase 上的學員資料嗎？')) return;
+    fetch('https://firestore.googleapis.com/v1/projects/hlsignin-app/databases/(default)/documents/signin_data/students', {
+        method: 'DELETE',
+        headers: {'Authorization': 'Bearer '}
+    }).then(() => {
+        alert('Firebase 學員資料已清除！');
+        location.reload();
+    }).catch(e => alert('錯誤: ' + e.message));
+}
+clearFirebaseStudents();
+</script>
