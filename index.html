@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.42 (115.4.10) - 新增一鍵清除 Firebase 重複學員功能</p>
+        <p>版本：v0.43 (115.4.10) - 清除學員功能同步 Firebase</p>
     </footer>
 
     <script>
@@ -460,7 +460,6 @@
                             // 延遲同步，等離線資料載入完成
                             setTimeout(syncFromFirebase, 1500);
                             // 清除 Firebase 重複學員（一次性）
-                            setTimeout(clearFirebaseStudentsOnce, 2000);
                         })
                         .catch(err => {
                             if (err.code === 'failed-precondition' || err.code === 'unimplemented') {
@@ -472,7 +471,6 @@
                             // 延遲同步
                             setTimeout(syncFromFirebase, 1500);
                             // 清除 Firebase 重複學員（一次性）
-                            setTimeout(clearFirebaseStudentsOnce, 2000);
                         });
                 } else {
                     console.warn('Firebase SDK 未成功載入，僅使用本地模式');
@@ -708,23 +706,6 @@
             } catch(e) {
                 console.warn('❌ Firebase 同步失敗:', e.message);
             }
-        }
-        
-        // 清除 Firebase 學員資料（一次性）
-        function clearFirebaseStudentsOnce() {
-            if (localStorage.getItem('firebaseCleared_students') === 'true') return;
-            if (!confirm('即將清除 Firebase 上重複的學員資料！\n\n按「確定」繼續，按「取消」略過。')) {
-                localStorage.setItem('firebaseCleared_students', 'true');
-                return;
-            }
-            fbDB.doc(FB_PATH.STUDENTS).delete().then(() => {
-                localStorage.setItem('firebaseCleared_students', 'true');
-                alert('Firebase 學員資料已清除！請重新整理頁面。');
-                location.reload();
-            }).catch(e => {
-                alert('清除失敗: ' + e.message);
-                localStorage.setItem('firebaseCleared_students', 'true');
-            });
         }
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
@@ -1032,12 +1013,15 @@
             renderAll();
         }
         function clearAllStudents() {
-            if(!confirm('確定清除所有學員？')) return;
+            if(!confirm('確定清除所有學員？（包含 Firebase）')) return;
             students = [];
             signatures = {};
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+            fbSet(FB_PATH.STUDENTS, {});
+            fbSet(FB_PATH.SIGNATURES + '_' + currentSession, {});
             renderAll();
+            alert('已清除所有學員！');
         }
         function loadDemo(n) {
             const names10 = [{n:'王美華',g:'女'},{n:'陳素雲',g:'女'},{n:'林水木',g:'男'},{n:'黃金土',g:'男'},{n:'李牡丹',g:'女'},{n:'張慶祥',g:'男'},{n:'劉美玲',g:'女'},{n:'羅大文',g:'男'},{n:'吳月娥',g:'女'},{n:'鄭清泉',g:'男'}];
