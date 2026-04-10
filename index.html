@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.28 (115.4.10) - 修復刪除場次同步問題</p>
+        <p>版本：v0.29 (115.4.10) - 優化同步邏輯，刪除後自動重新整理</p>
     </footer>
 
     <script>
@@ -478,12 +478,12 @@
             }
         })();
         
-        // 每 5 秒自動同步一次（確保跨裝置即時更新）
+        // 每 3 秒自動同步一次（確保跨裝置即時更新）
         setInterval(() => {
             if (fbReady && fbDB) {
                 syncFromFirebase();
             }
-        }, 5000);
+        }, 3000);
         
         // Firestore 路徑常數
         const FB_PATH = {
@@ -565,67 +565,99 @@
         
         // 從 Firestore 同步資料（讀取其他裝置的資料）
         // 初始同步（單次讀取）
+        let lastSyncHash = ''; // 用於檢測是否有變化
         async function syncFromFirebase() {
             if (!fbReady || !fbDB) {
-                console.warn('⚠️ Firebase 未就緒，無法同步');
                 return;
             }
-            console.log('🔄 開始 Firebase 同步...');
             try {
+                // 同時讀取所有需要同步的資料
+                const [stuSnap, volSnap, sessSnap, sigSnap] = await Promise.all([
+                    fbDB.doc(FB_PATH.STUDENTS).get(),
+                    fbDB.doc(FB_PATH.VOLUNTEERS).get(),
+                    fbDB.doc(FB_PATH.SESSIONS).get(),
+                    fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get()
+                ]);
+                
+                // 計算資料hash用於比較是否有變化
+                let dataHash = JSON.stringify({
+                    students: stuSnap.exists ? stuSnap.data() : null,
+                    volunteers: volSnap.exists ? volSnap.data() : null,
+                    sessions: sessSnap.exists ? sessSnap.data() : null,
+                    signatures: sigSnap.exists ? sigSnap.data() : null
+                });
+                
+                // 如果資料沒變化就不更新
+                if (dataHash === lastSyncHash) {
+                    return;
+                }
+                lastSyncHash = dataHash;
+                
+                let hasChanges = false;
+                
                 // 同步學員名單
-                const stuSnap = await fbDB.doc(FB_PATH.STUDENTS).get();
                 if (stuSnap.exists) {
                     let fbData = stuSnap.data();
                     let newStudents = Object.values(fbData);
-                    localStorage.setItem('s_students', JSON.stringify(newStudents));
-                    students = newStudents;
-                    students.forEach(s => { if (s.checked === undefined) s.checked = true; });
-                    console.log('📥 同步學員:', newStudents.length, '位');
-                } else {
-                    console.log('📭 Firebase 沒有學員資料');
+                    let localStu = JSON.parse(localStorage.getItem('s_students') || '[]');
+                    if (JSON.stringify(newStudents) !== JSON.stringify(localStu)) {
+                        localStorage.setItem('s_students', JSON.stringify(newStudents));
+                        students = newStudents;
+                        students.forEach(s => { if (s.checked === undefined) s.checked = true; });
+                        console.log('📥 同步學員:', newStudents.length, '位');
+                        hasChanges = true;
+                    }
                 }
                 
                 // 同步志工名單
-                const volSnap = await fbDB.doc(FB_PATH.VOLUNTEERS).get();
                 if (volSnap.exists) {
                     let fbData = volSnap.data();
                     let newVolunteers = Object.values(fbData);
-                    localStorage.setItem('s_volunteers', JSON.stringify(newVolunteers));
-                    volunteers = newVolunteers;
-                    volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
-                    console.log('📥 同步志工:', newVolunteers.length, '位');
-                } else {
-                    console.log('📭 Firebase 沒有志工資料');
-                }
-                
-                // 同步課程資料
-                const courseSnap = await fbDB.doc(FB_PATH.COURSE).get();
-                if (courseSnap.exists) {
-                    localStorage.setItem('s_course', JSON.stringify(courseSnap.data()));
+                    let localVol = JSON.parse(localStorage.getItem('s_volunteers') || '[]');
+                    if (JSON.stringify(newVolunteers) !== JSON.stringify(localVol)) {
+                        localStorage.setItem('s_volunteers', JSON.stringify(newVolunteers));
+                        volunteers = newVolunteers;
+                        volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
+                        console.log('📥 同步志工:', newVolunteers.length, '位');
+                        hasChanges = true;
+                    }
                 }
                 
                 // 同步場次列表
-                const sessSnap = await fbDB.doc(FB_PATH.SESSIONS).get();
                 if (sessSnap.exists) {
                     let fbSessions = sessSnap.data().list || [];
-                    let allSessionsNew = [...new Set([...allSessions, ...fbSessions])];
-                    allSessionsNew.sort().reverse();
-                    localStorage.setItem('s_allSessions', JSON.stringify(allSessionsNew));
-                    allSessions = allSessionsNew;
-                    renderSessionSelect();
+                    let localSess = JSON.parse(localStorage.getItem('s_allSessions') || '[]');
+                    if (JSON.stringify(fbSessions) !== JSON.stringify(localSess)) {
+                        localStorage.setItem('s_allSessions', JSON.stringify(fbSessions));
+                        allSessions = fbSessions.sort().reverse();
+                        renderSessionSelect();
+                        console.log('📥 同步場次列表:', fbSessions.length, '個');
+                        hasChanges = true;
+                    }
                 }
                 
                 // 同步目前場次的簽到資料
-                const sigSnap = await fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get();
                 if (sigSnap.exists) {
                     let fbSigs = sigSnap.data();
-                    let mergedSigs = { ...signatures, ...fbSigs };
-                    localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(mergedSigs));
-                    signatures = mergedSigs;
-                    console.log('📥 同步簽到:', Object.keys(fbSigs).length, '筆記錄');
-                } else {
-                    console.log('📭 Firebase 沒有簽到資料 (場次:', currentSession, ')');
+                    let localSigs = JSON.parse(localStorage.getItem('s_signatures_' + currentSession) || '{}');
+                    if (JSON.stringify(fbSigs) !== JSON.stringify(localSigs)) {
+                        signatures = fbSigs;
+                        localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(fbSigs));
+                        console.log('📥 同步簽到:', Object.keys(fbSigs).length, '筆記錄');
+                        hasChanges = true;
+                    }
                 }
+                
+                // 如果有變化就重新渲染 UI
+                if (hasChanges) {
+                    console.log('🔄 Firebase 有更新，重新渲染...');
+                    renderAll();
+                }
+                
+            } catch(e) {
+                console.warn('❌ Firebase 同步失敗:', e.message);
+            }
+        }
                 
                 // 同步請假資料
                 const leaveSnap = await fbDB.doc(FB_PATH.LEAVES + '_' + currentSession).get();
@@ -645,21 +677,7 @@
                     volunteerLeaves = mergedVolLeaves;
                 }
                 
-                // 同步空白簽到
-                const blankSnap = await fbDB.doc(FB_PATH.BLANK_SIGNINS + '_' + currentSession).get();
-                if (blankSnap.exists) {
-                    let fbBlank = blankSnap.data().list || [];
-                    let mergedBlank = [...blankSignins, ...fbBlank.filter(b => !blankSignins.some(ex => ex.name === b.name && ex.time === b.time))];
-                    localStorage.setItem('s_blankSignins_' + currentSession, JSON.stringify(mergedBlank));
-                    blankSignins = mergedBlank;
-                }
-                
-                console.log('✅ Firebase 初始同步完成');
-                renderAll();
-            } catch(e) {
-                console.warn('Firebase 同步失敗:', e.message);
-            }
-        }
+
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
         
@@ -830,7 +848,7 @@
                 localStorage.setItem('s_allSessions', JSON.stringify([today]));
             }
             
-            alert('已刪除場次 ' + date);
+            alert('已刪除場次 ' + date + '，頁面將重新整理');
             location.reload();
         }
 
