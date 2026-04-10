@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.22 (115.4.10) - 簽到卡片名字性別改為同一行</p>
+        <p>版本：v0.23 (115.4.10) - 新增 Firebase 跨裝置同步功能</p>
     </footer>
 
     <script>
@@ -456,7 +456,7 @@
                     
                     // 嘗試開啟離線持久化（常見錯誤不顯示）
                     fbDB.enablePersistence({ synchronizeTabs: true })
-                        .then(() => { fbReady = true; console.log('Firebase 離線持久化已開啟'); })
+                        .then(() => { fbReady = true; console.log('Firebase 離線持久化已開啟'); syncFromFirebase(); })
                         .catch(err => {
                             if (err.code === 'failed-precondition' || err.code === 'unimplemented') {
                                 // 正常：多分頁或不支援 - 不需要特別處理
@@ -464,6 +464,7 @@
                                 console.warn('Firebase 離線持久化設定:', err.message);
                             }
                             fbReady = true;
+                            syncFromFirebase();
                         });
                 } else {
                     console.warn('Firebase SDK 未成功載入，僅使用本地模式');
@@ -532,6 +533,90 @@
         let leaves = JSON.parse(localStorage.getItem('s_leaves_' + currentSession) || '{}');
         let volunteerLeaves = JSON.parse(localStorage.getItem('s_volunteerLeaves_' + currentSession) || '{}');
         let blankSignins = JSON.parse(localStorage.getItem('s_blankSignins_' + currentSession) || '[]');
+        
+        // 從 Firestore 同步資料（讀取其他裝置的資料）
+        async function syncFromFirebase() {
+            if (!fbReady || !fbDB) return;
+            try {
+                // 同步學員名單
+                const stuSnap = await fbDB.collection(FB_COL.STUDENTS).get();
+                if (!stuSnap.empty) {
+                    let newStudents = stuSnap.docs.map(d => d.data());
+                    localStorage.setItem('s_students', JSON.stringify(newStudents));
+                    students = newStudents;
+                    students.forEach(s => { if (s.checked === undefined) s.checked = true; });
+                }
+                
+                // 同步志工名單
+                const volSnap = await fbDB.collection(FB_COL.VOLUNTEERS).get();
+                if (!volSnap.empty) {
+                    let newVolunteers = volSnap.docs.map(d => d.data());
+                    localStorage.setItem('s_volunteers', JSON.stringify(newVolunteers));
+                    volunteers = newVolunteers;
+                    volunteers.forEach(v => { if (v.checked === undefined) v.checked = true; });
+                }
+                
+                // 同步課程資料
+                const courseSnap = await fbDB.collection(FB_COL.COURSE).get();
+                if (!courseSnap.empty) {
+                    let courseData = courseSnap.docs[0].data();
+                    localStorage.setItem('s_course', JSON.stringify(courseData));
+                }
+                
+                // 同步場次列表
+                const sessSnap = await fbDB.collection(FB_COL.SESSIONS).get();
+                if (!sessSnap.empty) {
+                    let fbSessions = sessSnap.docs.map(d => d.id);
+                    let allSessionsNew = [...new Set([...allSessions, ...fbSessions])];
+                    allSessionsNew.sort().reverse();
+                    localStorage.setItem('s_allSessions', JSON.stringify(allSessionsNew));
+                    allSessions = allSessionsNew;
+                    renderSessionSelect();
+                }
+                
+                // 同步目前場次的簽到資料
+                const sigSnap = await fbDB.collection(FB_COL.SIGNATURES).doc(currentSession).get();
+                if (sigSnap.exists) {
+                    let fbSigs = sigSnap.data();
+                    // 合併：Firebase 資料覆蓋本地端（取兩者的聯集）
+                    let mergedSigs = { ...signatures, ...fbSigs };
+                    localStorage.setItem('s_signatures_' + currentSession, JSON.stringify(mergedSigs));
+                    signatures = mergedSigs;
+                }
+                
+                // 同步請假資料
+                const leaveSnap = await fbDB.collection(FB_COL.LEAVES).doc(currentSession).get();
+                if (leaveSnap.exists) {
+                    let fbLeaves = leaveSnap.data();
+                    let mergedLeaves = { ...leaves, ...fbLeaves };
+                    localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(mergedLeaves));
+                    leaves = mergedLeaves;
+                }
+                
+                // 同步志工請假資料
+                const volLeaveSnap = await fbDB.collection(FB_COL.VOLUNTEER_LEAVES).doc(currentSession).get();
+                if (volLeaveSnap.exists) {
+                    let fbVolLeaves = volLeaveSnap.data();
+                    let mergedVolLeaves = { ...volunteerLeaves, ...fbVolLeaves };
+                    localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(mergedVolLeaves));
+                    volunteerLeaves = mergedVolLeaves;
+                }
+                
+                // 同步空白簽到
+                const blankSnap = await fbDB.collection(FB_COL.BLANK_SIGNINS).doc(currentSession).get();
+                if (blankSnap.exists) {
+                    let fbBlank = blankSnap.data().list || [];
+                    let mergedBlank = [...blankSignins, ...fbBlank.filter(b => !blankSignins.some(ex => ex.name === b.name && ex.time === b.time))];
+                    localStorage.setItem('s_blankSignins_' + currentSession, JSON.stringify(mergedBlank));
+                    blankSignins = mergedBlank;
+                }
+                
+                console.log('✅ Firebase 同步完成');
+                renderAll();
+            } catch(e) {
+                console.warn('Firebase 同步失敗:', e.message);
+            }
+        }
         
         const defaultOrgs = ['花蓮市樂齡學習中心'];
         
