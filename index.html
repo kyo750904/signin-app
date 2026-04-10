@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.26 (115.4.10) - 新增 Firebase 偵錯訊息</p>
+        <p>版本：v0.27 (115.4.10) - 新增延遲同步 + 每5秒自動同步</p>
     </footer>
 
     <script>
@@ -456,7 +456,10 @@
                     
                     // 嘗試開啟離線持久化（常見錯誤不顯示）
                     fbDB.enablePersistence({ synchronizeTabs: true })
-                        .then(() => { fbReady = true; console.log('Firebase 離線持久化已開啟'); syncFromFirebase(); })
+                        .then(() => { fbReady = true; console.log('Firebase 離線持久化已開啟'); 
+                            // 延遲同步，等離線資料載入完成
+                            setTimeout(syncFromFirebase, 1500);
+                        })
                         .catch(err => {
                             if (err.code === 'failed-precondition' || err.code === 'unimplemented') {
                                 // 正常：多分頁或不支援 - 不需要特別處理
@@ -464,7 +467,8 @@
                                 console.warn('Firebase 離線持久化設定:', err.message);
                             }
                             fbReady = true;
-                            syncFromFirebase();
+                            // 延遲同步
+                            setTimeout(syncFromFirebase, 1500);
                         });
                 } else {
                     console.warn('Firebase SDK 未成功載入，僅使用本地模式');
@@ -473,6 +477,13 @@
                 console.warn('Firebase 初始化失敗，僅使用本地模式:', e.message);
             }
         })();
+        
+        // 每 5 秒自動同步一次（確保跨裝置即時更新）
+        setInterval(() => {
+            if (fbReady && fbDB) {
+                syncFromFirebase();
+            }
+        }, 5000);
         
         // Firestore 路徑常數
         const FB_PATH = {
