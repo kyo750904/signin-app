@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.34 (115.4.10) - 關閉學員志工名單自動同步，保留簽到同步</p>
+        <p>版本：v0.35 (115.4.10) - 修復同步後簽到卡片未更新問題</p>
     </footer>
 
     <script>
@@ -619,7 +619,10 @@
                 // 如果有變化就重新渲染 UI
                 if (hasChanges) {
                     console.log('🔄 Firebase 有更新，重新渲染...');
-                    renderAll();
+                    // 直接呼叫渲染函式，確保更新
+                    renderStudentList();
+                    updateStats();
+                    renderSessionSelect();
                 }
                 
             } catch(e) {
