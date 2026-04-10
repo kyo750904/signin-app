@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.37 (115.4.10) - 開啟學員/志工/簽到/場次全部自動同步</p>
+        <p>版本：v0.38 (115.4.10) - 全部資料同步：學員/志工/簽到/請假/場次/空白簽到</p>
     </footer>
 
     <script>
@@ -572,11 +572,14 @@
             }
             try {
                 // 同步所有資料
-                const [stuSnap, volSnap, sessSnap, sigSnap] = await Promise.all([
+                const [stuSnap, volSnap, sessSnap, sigSnap, leaveSnap, volLeaveSnap, blankSnap] = await Promise.all([
                     fbDB.doc(FB_PATH.STUDENTS).get({ source: 'server' }),
                     fbDB.doc(FB_PATH.VOLUNTEERS).get({ source: 'server' }),
                     fbDB.doc(FB_PATH.SESSIONS).get({ source: 'server' }),
-                    fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get({ source: 'server' })
+                    fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).get({ source: 'server' }),
+                    fbDB.doc(FB_PATH.LEAVES + '_' + currentSession).get({ source: 'server' }),
+                    fbDB.doc(FB_PATH.VOLUNTEER_LEAVES + '_' + currentSession).get({ source: 'server' }),
+                    fbDB.doc(FB_PATH.BLANK_SIGNINS + '_' + currentSession).get({ source: 'server' })
                 ]);
                 
                 // 計算資料hash用於比較是否有變化
@@ -584,7 +587,10 @@
                     students: stuSnap.exists ? stuSnap.data() : null,
                     volunteers: volSnap.exists ? volSnap.data() : null,
                     sessions: sessSnap.exists ? sessSnap.data() : null,
-                    signatures: sigSnap.exists ? sigSnap.data() : null
+                    signatures: sigSnap.exists ? sigSnap.data() : null,
+                    leaves: leaveSnap.exists ? leaveSnap.data() : null,
+                    volunteerLeaves: volLeaveSnap.exists ? volLeaveSnap.data() : null,
+                    blankSignins: blankSnap.exists ? blankSnap.data() : null
                 });
                 
                 // 如果資料沒變化就不更新
@@ -640,6 +646,33 @@
                         console.log('📥 同步簽到:', Object.keys(fbSigs).length, '筆記錄');
                         hasChanges = true;
                     }
+                }
+                
+                // 同步請假資料
+                if (leaveSnap.exists) {
+                    let fbLeaves = leaveSnap.data();
+                    localStorage.setItem('s_leaves_' + currentSession, JSON.stringify(fbLeaves));
+                    leaves = fbLeaves;
+                    console.log('📥 同步請假');
+                    hasChanges = true;
+                }
+                
+                // 同步志工請假資料
+                if (volLeaveSnap.exists) {
+                    let fbVolLeaves = volLeaveSnap.data();
+                    localStorage.setItem('s_volunteerLeaves_' + currentSession, JSON.stringify(fbVolLeaves));
+                    volunteerLeaves = fbVolLeaves;
+                    console.log('📥 同步志工請假');
+                    hasChanges = true;
+                }
+                
+                // 同步空白簽到
+                if (blankSnap.exists) {
+                    let fbBlank = blankSnap.data().list || [];
+                    localStorage.setItem('s_blankSignins_' + currentSession, JSON.stringify(fbBlank));
+                    blankSignins = fbBlank;
+                    console.log('📥 同步空白簽到:', fbBlank.length, '筆');
+                    hasChanges = true;
                 }
                 
                 // 如果有變化就重新渲染 UI
