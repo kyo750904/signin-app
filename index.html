@@ -415,7 +415,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.27 (115.4.10) - 新增延遲同步 + 每5秒自動同步</p>
+        <p>版本：v0.28 (115.4.10) - 修復刪除場次同步問題</p>
     </footer>
 
     <script>
@@ -527,9 +527,18 @@
         function fbClear(docPath) {
             if (!fbReady || !fbDB) return;
             try {
-                fbDB.doc(docPath).set({}, { merge: false })
-                    .then(() => console.log('🧹 Firebase 清除成功:', docPath))
-                    .catch(e => console.warn('❌ Firebase 清除失敗:', docPath, e.message));
+                // 檢查是否為場次相關文件（有日期後綴）
+                if (docPath.includes('_20')) {
+                    // 場次文件：直接刪除整個文件
+                    fbDB.doc(docPath).delete()
+                        .then(() => console.log('🧹 Firebase 刪除成功:', docPath))
+                        .catch(e => console.warn('❌ Firebase 刪除失敗:', docPath, e.message));
+                } else {
+                    // 其他文件：設為空物件
+                    fbDB.doc(docPath).set({}, { merge: false })
+                        .then(() => console.log('🧹 Firebase 清除成功:', docPath))
+                        .catch(e => console.warn('❌ Firebase 清除失敗:', docPath, e.message));
+                }
             } catch(e) {}
         }
         
@@ -804,8 +813,8 @@
             allSessions = allSessions.filter(s => s !== date);
             localStorage.setItem('s_allSessions', JSON.stringify(allSessions));
             
-            // Firestore 同步刪除
-            fbDelete(FB_PATH.SESSIONS);
+            // Firestore 同步刪除（更新場次列表 + 刪除該場次資料）
+            fbSet(FB_PATH.SESSIONS, { list: allSessions, current: allSessions[0] || '' });
             fbClear(FB_PATH.SIGNATURES + '_' + date);
             fbClear(FB_PATH.LEAVES + '_' + date);
             fbClear(FB_PATH.VOLUNTEER_LEAVES + '_' + date);
