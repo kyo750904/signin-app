@@ -198,6 +198,7 @@
                     <button onclick="loadDemo(20)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 20人</button>
                     <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
+                    <button onclick="loadStudents0411()" style="padding:10px 20px;background:#4caf50;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(0411)</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                 </div>
             </div>
@@ -415,7 +416,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.34 (115.4.10) - 關閉學員志工名單自動同步，保留簽到同步</p>
+        <p>版本：v0.35 (115.4.11) - 新增0411學員名單20人</p>
     </footer>
 
     <script>
@@ -960,6 +961,25 @@
         function loadStudents2026() {
             const newStudents = [
                 {n:'王芬英',g:'女'},{n:'黃寶怡',g:'女'},{n:'陳雪珠',g:'女'},{n:'陳暉琳',g:'女'},{n:'林思儒',g:'女'},{n:'林曼萍',g:'女'},{n:'張翠蓮',g:'女'},{n:'王惠姿',g:'女'},{n:'方秀惠',g:'女'},{n:'黃譯慧',g:'女'},{n:'張亦鵬',g:'女'},{n:'曾玉女',g:'女'},{n:'林桂榮',g:'女'},{n:'廖振隆',g:'男'},{n:'許淑珍',g:'女'},{n:'許惠玲',g:'女'},{n:'高瑞嬌',g:'女'},{n:'高惠貞',g:'女'},{n:'高瑞嬌',g:'女'},{n:'曾美玲',g:'女'}
+            ];
+            let added = 0;
+            newStudents.forEach(d => {
+                if(!students.some(s => s.name === d.n)) {
+                    let newStudent = {id:Date.now()+added, name:d.n, gender:d.g, checked:true};
+                    students.push(newStudent);
+                    added++;
+                }
+            });
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            localStorage.setItem('s_students',JSON.stringify(students));
+            renderAll();
+            alert('已載入 ' + added + ' 位學員');
+        }
+        
+        // 新增學員名單（115.4.11）
+        function loadStudents0411() {
+            const newStudents = [
+                {n:'吳明崇',g:'男'},{n:'黃碧雲',g:'女'},{n:'李國銘',g:'男'},{n:'蔡念淑',g:'女'},{n:'黃淑卿',g:'女'},{n:'王金河',g:'男'},{n:'黃思苑',g:'女'},{n:'林桂美',g:'女'},{n:'陳政義',g:'男'},{n:'楊芷柔',g:'女'},{n:'施育文',g:'男'},{n:'施鑑洲',g:'男'},{n:'陸鎮平',g:'男'},{n:'盧鳯嬌',g:'女'},{n:'陳嘉莉',g:'女'},{n:'周詠𩓙',g:'男'},{n:'鍾春鳯',g:'女'},{n:'張建俊',g:'男'},{n:'黃志鏘',g:'男'},{n:'陳玉齢',g:'女'}
             ];
             let added = 0;
             newStudents.forEach(d => {
