@@ -1039,9 +1039,6 @@
             alert('已刪除 ' + deleted + ' 位學員');
         }
         function confirmDeleteGroup() {
-            // 先取得目前所有學員名稱用於比對
-            let currentNames = students.map(s => s.name.trim());
-            
             if(document.getElementById('delGroup5').checked) {
                 if(!confirm('⚠️ 確定要刪除全部學員嗎？此操作無法恢復！')) return;
                 students = [];
@@ -1056,79 +1053,47 @@
                 return;
             }
             
-            let totalDeleted = 0;
-            
-            // 示範10人組
+            // 示範10人組 - 全部刪除這10人
             if(document.getElementById('delGroup1').checked) {
-                let names = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉'];
-                names.forEach(n => {
-                    let idx = students.findIndex(s => s.name.trim() === n);
-                    if(idx !== -1) {
-                        delete signatures[students[idx].id];
-                        students.splice(idx, 1);
-                        totalDeleted++;
-                    }
-                });
+                students = students.filter(s => !['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉'].includes(s.name));
             }
             
-            // 示範20人組（額外10人）
+            // 示範20人組 - 全部刪除這20人
             if(document.getElementById('delGroup2').checked) {
-                let names = ['孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中'];
-                names.forEach(n => {
-                    let idx = students.findIndex(s => s.name.trim() === n);
-                    if(idx !== -1) {
-                        delete signatures[students[idx].id];
-                        students.splice(idx, 1);
-                        totalDeleted++;
-                    }
-                });
+                students = students.filter(s => !['孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中'].includes(s.name));
             }
             
-            // 示範30人組（額外10人）
+            // 示範30人組 - 全部刪除這10人
             if(document.getElementById('delGroup3').checked) {
-                let names = ['李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘'];
-                names.forEach(n => {
-                    let idx = students.findIndex(s => s.name.trim() === n);
-                    if(idx !== -1) {
-                        delete signatures[students[idx].id];
-                        students.splice(idx, 1);
-                        totalDeleted++;
-                    }
-                });
+                students = students.filter(s => !['李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘'].includes(s.name));
             }
             
-            // 水患自主志工
+            // 水患自主志工 - 全部刪除這20人
             if(document.getElementById('delGroup4').checked) {
-                let names = ['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'];
-                // 刪除學員
-                names.forEach(n => {
-                    let idx = students.findIndex(s => s.name.trim() === n);
-                    if(idx !== -1) {
-                        delete signatures[students[idx].id];
-                        students.splice(idx, 1);
-                        totalDeleted++;
-                    }
-                });
-                // 也從志工刪除
-                volunteers = volunteers.filter(v => !names.includes(v.name.trim()));
+                students = students.filter(s => !['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'].includes(s.name));
+                volunteers = volunteers.filter(v => !['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'].includes(v.name));
                 localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
                 fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
             }
             
-            if(totalDeleted === 0) {
-                alert('找不到可刪除的學員，或已被刪除');
-                closeDeleteGroupModal();
-                return;
-            }
+            // 重建 signatures（移除已刪除學員的簽到記錄）
+            let remainingIds = students.map(s => s.id);
+            let newSigs = {};
+            Object.keys(signatures).forEach(id => {
+                if(remainingIds.includes(id)) {
+                    newSigs[id] = signatures[id];
+                }
+            });
+            signatures = newSigs;
             
-            // 儲存
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
+            
             closeDeleteGroupModal();
             renderAll();
-            alert('已刪除 ' + totalDeleted + ' 位');
+            alert('已刪除群組！');
         }
         function clearAllStudents() {
             if(!confirm('確定清除所有學員？')) return;
