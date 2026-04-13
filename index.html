@@ -1039,17 +1039,8 @@
             alert('已刪除 ' + deleted + ' 位學員');
         }
         function confirmDeleteGroup() {
-            let selectedCount = 0;
-            if(document.getElementById('delGroup1').checked) selectedCount++;
-            if(document.getElementById('delGroup2').checked) selectedCount++;
-            if(document.getElementById('delGroup3').checked) selectedCount++;
-            if(document.getElementById('delGroup4').checked) selectedCount++;
-            if(document.getElementById('delGroup5').checked) selectedCount++;
-            
-            if(selectedCount === 0) {
-                alert('請先勾選要刪除的群組');
-                return;
-            }
+            // 直接關閉 modal
+            document.getElementById('deleteGroupModal').classList.remove('active');
             
             // 示範10人組
             if(document.getElementById('delGroup1').checked) {
@@ -1089,13 +1080,18 @@
             });
             signatures = newSigs;
             
+            // 立即儲存並渲染
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
             
-            closeDeleteGroupModal();
-            renderAll();
+            // 立即重新渲染畫面
+            document.getElementById('manageList').innerHTML = '';
+            renderManageList();
+            renderStudentList();
+            updateStats();
+            
             alert('已刪除群組！');
         }
         function clearAllStudents() {
