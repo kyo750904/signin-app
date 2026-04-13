@@ -199,6 +199,7 @@
                     <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
                     <button onclick="loadVol0411()" style="padding:10px 20px;background:#ff9800;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">👤 水患自主志工</button>
+                    <button onclick="deleteGroupByName()" style="padding:10px 20px;background:#cc0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除群組</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                     <button onclick="deleteStudentByName()" style="padding:10px 20px;background:#ff0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除學員</button>
                 </div>
@@ -417,7 +418,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.39 (115.4.13) - 新增刪除學員功能</p>
+        <p>版本：v0.40 (115.4.13) - 新增刪除群組功能</p>
     </footer>
 
     <script>
@@ -944,6 +945,51 @@
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             renderAll();
             alert('已刪除 ' + name);
+        }
+        function deleteGroupByName() {
+            let group = prompt('請輸入要刪除的群組名稱：\n1: 示範10人組\n2: 示範20人組\n3: 示範30人組\n4: 水患自主志工\n5: 全部學員\n\n直接輸入數字或名稱：');
+            if(!group) return;
+            
+            let namesToDelete = [];
+            if(group === '1' || group === '示範10人組') {
+                namesToDelete = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉'];
+            } else if(group === '2' || group === '示範20人組') {
+                namesToDelete = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉','孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中'];
+            } else if(group === '3' || group === '示範30人組') {
+                namesToDelete = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉','孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中','李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘'];
+            } else if(group === '4' || group === '水患自主志工') {
+                namesToDelete = ['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'];
+                // 也從志工刪除
+                volunteers = volunteers.filter(v => !namesToDelete.includes(v.name));
+                localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
+            } else if(group === '5' || group === '全部學員') {
+                if(!confirm('確定要刪除全部學員嗎？')) return;
+                students = [];
+                signatures = {};
+                localStorage.setItem('s_students',JSON.stringify(students));
+                localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+                fbSet(FB_PATH.STUDENTS, {});
+                fbSet(FB_PATH.SIGNATURES + '_' + currentSession, {});
+                renderAll();
+                alert('已刪除全部學員');
+                return;
+            } else {
+                alert('無效的群組');
+                return;
+            }
+            
+            if(!confirm('確定要刪除這個群組嗎？')) return;
+            let before = students.length;
+            students = students.filter(s => !namesToDelete.includes(s.name));
+            namesToDelete.forEach(name => delete signatures[name]);
+            let deleted = before - students.length;
+            localStorage.setItem('s_students',JSON.stringify(students));
+            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
+            fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
+            renderAll();
+            alert('已刪除 ' + deleted + ' 位');
         }
         function clearAllStudents() {
             if(!confirm('確定清除所有學員？')) return;
