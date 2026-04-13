@@ -986,29 +986,15 @@
             document.getElementById('deleteGroupModal').classList.remove('active');
         }
         function confirmDeleteGroup() {
-            let namesToDelete = [];
-            if(document.getElementById('delGroup1').checked) {
-                namesToDelete = namesToDelete.concat(['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉']);
-            }
-            if(document.getElementById('delGroup2').checked) {
-                namesToDelete = namesToDelete.concat(['孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中']);
-            }
-            if(document.getElementById('delGroup3').checked) {
-                namesToDelete = namesToDelete.concat(['李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘']);
-            }
-            if(document.getElementById('delGroup4').checked) {
-                namesToDelete = namesToDelete.concat(['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢']);
-                // 也從志工刪除
-                volunteers = volunteers.filter(v => !namesToDelete.includes(v.name));
-                localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
-            }
+            // 先取得目前所有學員名稱用於比對
+            let currentNames = students.map(s => s.name.trim());
+            
             if(document.getElementById('delGroup5').checked) {
                 if(!confirm('⚠️ 確定要刪除全部學員嗎？此操作無法恢復！')) return;
                 students = [];
                 signatures = {};
-                localStorage.setItem('s_students',JSON.stringify(students));
-                localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+                localStorage.setItem('s_students','[]');
+                localStorage.setItem('s_signatures_' + currentSession,'{}');
                 fbSet(FB_PATH.STUDENTS, {});
                 fbSet(FB_PATH.SIGNATURES + '_' + currentSession, {});
                 closeDeleteGroupModal();
@@ -1017,26 +1003,79 @@
                 return;
             }
             
-            if(namesToDelete.length === 0) {
-                alert('請先勾選要刪除的群組');
+            let totalDeleted = 0;
+            
+            // 示範10人組
+            if(document.getElementById('delGroup1').checked) {
+                let names = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉'];
+                names.forEach(n => {
+                    let idx = students.findIndex(s => s.name.trim() === n);
+                    if(idx !== -1) {
+                        delete signatures[students[idx].id];
+                        students.splice(idx, 1);
+                        totalDeleted++;
+                    }
+                });
+            }
+            
+            // 示範20人組（額外10人）
+            if(document.getElementById('delGroup2').checked) {
+                let names = ['孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中'];
+                names.forEach(n => {
+                    let idx = students.findIndex(s => s.name.trim() === n);
+                    if(idx !== -1) {
+                        delete signatures[students[idx].id];
+                        students.splice(idx, 1);
+                        totalDeleted++;
+                    }
+                });
+            }
+            
+            // 示範30人組（額外10人）
+            if(document.getElementById('delGroup3').checked) {
+                let names = ['李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘'];
+                names.forEach(n => {
+                    let idx = students.findIndex(s => s.name.trim() === n);
+                    if(idx !== -1) {
+                        delete signatures[students[idx].id];
+                        students.splice(idx, 1);
+                        totalDeleted++;
+                    }
+                });
+            }
+            
+            // 水患自主志工
+            if(document.getElementById('delGroup4').checked) {
+                let names = ['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'];
+                // 刪除學員
+                names.forEach(n => {
+                    let idx = students.findIndex(s => s.name.trim() === n);
+                    if(idx !== -1) {
+                        delete signatures[students[idx].id];
+                        students.splice(idx, 1);
+                        totalDeleted++;
+                    }
+                });
+                // 也從志工刪除
+                volunteers = volunteers.filter(v => !names.includes(v.name.trim()));
+                localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
+            }
+            
+            if(totalDeleted === 0) {
+                alert('找不到可刪除的學員，或已被刪除');
+                closeDeleteGroupModal();
                 return;
             }
             
-            if(!confirm('確定要刪除選取的群組嗎？')) return;
-            let before = students.length;
-            students = students.filter(s => !namesToDelete.includes(s.name));
-            namesToDelete.forEach(name => {
-                let s = students.find(st => st.name === name);
-                if(s) delete signatures[s.id];
-            });
-            let deleted = before - students.length;
+            // 儲存
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
             closeDeleteGroupModal();
             renderAll();
-            alert('已刪除 ' + deleted + ' 位');
+            alert('已刪除 ' + totalDeleted + ' 位');
         }
         function clearAllStudents() {
             if(!confirm('確定清除所有學員？')) return;
