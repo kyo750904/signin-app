@@ -199,7 +199,7 @@
                     <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
                     <button onclick="loadVol0411()" style="padding:10px 20px;background:#ff9800;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">👤 水患自主志工</button>
-                    <button onclick="deleteGroupByName()" style="padding:10px 20px;background:#cc0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除群組</button>
+                    <button onclick="showDeleteGroupModal()" style="padding:10px 20px;background:#cc0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除群組</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                     <button onclick="deleteStudentByName()" style="padding:10px 20px;background:#ff0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除學員</button>
                 </div>
@@ -413,12 +413,40 @@
         </div>
     </div>
 
+    <!-- 刪除群組 Modal -->
+    <div id="deleteGroupModal" class="modal">
+        <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:500px;max-height:80vh;overflow-y:auto;">
+            <h3 style="text-align:center;margin:0 0 16px;">🗑️ 刪除群組</h3>
+            <div style="margin-bottom:16px;">
+                <label style="display:block;padding:12px;border:2px solid #ddd;border-radius:8px;margin-bottom:8px;cursor:pointer;">
+                    <input type="checkbox" id="delGroup1"> 📦 示範10人組（王美華、陳素雲、林水木...等10人）
+                </label>
+                <label style="display:block;padding:12px;border:2px solid #ddd;border-radius:8px;margin-bottom:8px;cursor:pointer;">
+                    <input type="checkbox" id="delGroup2"> 📦 示範20人組（王美華、陳素雲...等20人）
+                </label>
+                <label style="display:block;padding:12px;border:2px solid #ddd;border-radius:8px;margin-bottom:8px;cursor:pointer;">
+                    <input type="checkbox" id="delGroup3"> 📦 示範30人組（王美華、陳素雲...等30人）
+                </label>
+                <label style="display:block;padding:12px;border:2px solid #ff9800;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fff3e0;">
+                    <input type="checkbox" id="delGroup4"> 👤 水患自主志工（吳明崇、黃碧雲...等20人）
+                </label>
+                <label style="display:block;padding:12px;border:2px solid #c62828;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#ffebee;">
+                    <input type="checkbox" id="delGroup5"> ⚠️ 全部學員（危險！刪除所有學員）
+                </label>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:center;">
+                <button onclick="closeDeleteGroupModal()" style="padding:12px 24px;background:#9e9e9e;color:white;border:none;border-radius:8px;font-size:24px;">取消</button>
+                <button onclick="confirmDeleteGroup()" style="padding:12px 24px;background:#c62828;color:white;border:none;border-radius:8px;font-size:24px;">🗑️ 刪除</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer style="text-align:center;padding:20px;color:#666;font-size: 30px;">
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.40 (115.4.13) - 新增刪除群組功能</p>
+        <p>版本：v0.41 (115.4.13) - 刪除群組改為勾選介面</p>
     </footer>
 
     <script>
@@ -946,48 +974,67 @@
             renderAll();
             alert('已刪除 ' + name);
         }
-        function deleteGroupByName() {
-            let group = prompt('請輸入要刪除的群組名稱：\n1: 示範10人組\n2: 示範20人組\n3: 示範30人組\n4: 水患自主志工\n5: 全部學員\n\n直接輸入數字或名稱：');
-            if(!group) return;
-            
+        function showDeleteGroupModal() {
+            document.getElementById('deleteGroupModal').classList.add('active');
+            document.getElementById('delGroup1').checked = false;
+            document.getElementById('delGroup2').checked = false;
+            document.getElementById('delGroup3').checked = false;
+            document.getElementById('delGroup4').checked = false;
+            document.getElementById('delGroup5').checked = false;
+        }
+        function closeDeleteGroupModal() {
+            document.getElementById('deleteGroupModal').classList.remove('active');
+        }
+        function confirmDeleteGroup() {
             let namesToDelete = [];
-            if(group === '1' || group === '示範10人組') {
-                namesToDelete = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉'];
-            } else if(group === '2' || group === '示範20人組') {
-                namesToDelete = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉','孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中'];
-            } else if(group === '3' || group === '示範30人組') {
-                namesToDelete = ['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉','孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中','李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘'];
-            } else if(group === '4' || group === '水患自主志工') {
-                namesToDelete = ['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'];
+            if(document.getElementById('delGroup1').checked) {
+                namesToDelete = namesToDelete.concat(['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉']);
+            }
+            if(document.getElementById('delGroup2').checked) {
+                namesToDelete = namesToDelete.concat(['孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中']);
+            }
+            if(document.getElementById('delGroup3').checked) {
+                namesToDelete = namesToDelete.concat(['李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘']);
+            }
+            if(document.getElementById('delGroup4').checked) {
+                namesToDelete = namesToDelete.concat(['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢']);
                 // 也從志工刪除
                 volunteers = volunteers.filter(v => !namesToDelete.includes(v.name));
                 localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
                 fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
-            } else if(group === '5' || group === '全部學員') {
-                if(!confirm('確定要刪除全部學員嗎？')) return;
+            }
+            if(document.getElementById('delGroup5').checked) {
+                if(!confirm('⚠️ 確定要刪除全部學員嗎？此操作無法恢復！')) return;
                 students = [];
                 signatures = {};
                 localStorage.setItem('s_students',JSON.stringify(students));
                 localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
                 fbSet(FB_PATH.STUDENTS, {});
                 fbSet(FB_PATH.SIGNATURES + '_' + currentSession, {});
+                closeDeleteGroupModal();
                 renderAll();
                 alert('已刪除全部學員');
                 return;
-            } else {
-                alert('無效的群組');
+            }
+            
+            if(namesToDelete.length === 0) {
+                alert('請先勾選要刪除的群組');
                 return;
             }
             
-            if(!confirm('確定要刪除這個群組嗎？')) return;
+            if(!confirm('確定要刪除選取的群組嗎？')) return;
             let before = students.length;
             students = students.filter(s => !namesToDelete.includes(s.name));
-            namesToDelete.forEach(name => delete signatures[name]);
+            namesToDelete.forEach(name => {
+                let s = students.find(st => st.name === name);
+                if(s) delete signatures[s.id];
+            });
             let deleted = before - students.length;
             localStorage.setItem('s_students',JSON.stringify(students));
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
+            closeDeleteGroupModal();
             renderAll();
             alert('已刪除 ' + deleted + ' 位');
         }
