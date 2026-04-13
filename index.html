@@ -198,7 +198,6 @@
                     <button onclick="loadDemo(20)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 20人</button>
                     <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
-                    <button onclick="loadStudents0411()" style="padding:10px 20px;background:#4caf50;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(0411)</button>
                     <button onclick="loadVol0411()" style="padding:10px 20px;background:#ff9800;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">👤 水患自主志工</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                 </div>
@@ -417,7 +416,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.36 (115.4.13) - 新增水患自主志工20人</p>
+        <p>版本：v0.37 (115.4.13) - 移除0411學員，改為水患自主志工</p>
     </footer>
 
     <script>
@@ -978,24 +977,6 @@
         }
         
         // 新增學員名單（115.4.11）
-        function loadStudents0411() {
-            const newStudents = [
-                {n:'吳明崇',g:'男'},{n:'黃碧雲',g:'女'},{n:'李國銘',g:'男'},{n:'蔡念淑',g:'女'},{n:'黃淑卿',g:'女'},{n:'王金河',g:'男'},{n:'黃思苑',g:'女'},{n:'林桂美',g:'女'},{n:'陳政義',g:'男'},{n:'楊芷柔',g:'女'},{n:'施育文',g:'男'},{n:'施鑑洲',g:'男'},{n:'陸鎮平',g:'男'},{n:'盧鳯嬌',g:'女'},{n:'陳嘉莉',g:'女'},{n:'周詠𩓙',g:'男'},{n:'鍾春鳯',g:'女'},{n:'張建俊',g:'男'},{n:'黃志鏘',g:'男'},{n:'陳玉齢',g:'女'}
-            ];
-            let added = 0;
-            newStudents.forEach(d => {
-                if(!students.some(s => s.name === d.n)) {
-                    let newStudent = {id:Date.now()+added, name:d.n, gender:d.g, checked:true};
-                    students.push(newStudent);
-                    added++;
-                }
-            });
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
-            localStorage.setItem('s_students',JSON.stringify(students));
-            renderAll();
-            alert('已載入 ' + added + ' 位學員');
-        }
-        
         // 水患自主志工
         function loadVol0411() {
             const newVols = [
