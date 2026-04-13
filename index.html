@@ -267,6 +267,17 @@
                 <button onclick="deleteSession()" id="deleteSessionBtn" class="btn" style="width:100%;padding:10px;background:#cc0000;color:white;display:none;">🗑️ 刪除目前場次</button>
             </div>
             
+            <!-- 簽到標題 -->
+            <div class="card" style="background:#ffffff;border:2px solid #1565c0;">
+                <h3 style="margin:0 0 12px;color:#1565c0;">📋 簽到標題</h3>
+                <select id="signinTitle" class="input" style="font-size:26px;font-weight:bold;" onchange="saveSigninTitle()">
+                    <option value="1">1. 花蓮市樂齡學習中心 課程簽到表</option>
+                    <option value="2">2. 花蓮縣樂齡學習數位示範體驗場域 課程簽到表</option>
+                    <option value="3">3. 花蓮縣民生長照據點 長輩簽到表</option>
+                    <option value="4">4. 花蓮縣民生長照據點 志工簽到表</option>
+                </select>
+            </div>
+            
             <div class="card">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                     <div><label style="font-size: 30px;color:#666;">📅 日期</label><input type="date" id="courseDate" class="input"></div>
@@ -319,18 +330,18 @@
                         <input id="blankName" placeholder="姓名" class="input" style="flex:1;min-width:150px;">
                         <input type="date" id="blankDate" class="input" style="width:auto;">
                         <input type="time" id="blankTime" class="input" style="width:auto;">
-                        <button onclick="addBlankSignin()" class="btn" style="background:#000000;">➕ 新增</button>
+                        <button onclick="addBlankCard()" class="btn" style="background:#000000;">➕ 新增</button>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="clearAllBlank()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除全部</button>
+                        <button onclick="clearAllBlankCards()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除全部</button>
                     </div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-                        <h3 style="margin:0;color:#e65100;">📋 空白簽到名單</h3>
-                        <span id="blankCount">共 0 人</span>
+                        <h3 style="margin:0;color:#e65100;">📋 空白簽到卡片</h3>
+                        <span id="blankCount">共 0 格</span>
                     </div>
-                    <div id="blankList"></div>
+                    <div id="blankCardGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
                 </div>
             </div>
         </div>
@@ -452,7 +463,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.53 (115.4.13) - 已移除所有群組按鈕</p>
+        <p>版本：v0.54 (115.4.13) - 新增簽到標題+空白30格卡片</p>
     </footer>
 
     <script>
@@ -866,6 +877,7 @@
                 document.getElementById('signin-blank-content').style.display = 'block';
                 document.getElementById('signin-tab-blank').style.background = '#000000';
                 document.getElementById('signin-tab-blank').style.color = '#ffffff';
+                renderBlankCardGrid();
             }
         }
         
