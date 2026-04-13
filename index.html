@@ -991,12 +991,19 @@
         }
         function clearAllStudentsNow() {
             if(!confirm('確定要刪除全部學員嗎？')) return;
+            // 清除本地
             students = [];
             signatures = {};
             localStorage.setItem('s_students','[]');
             localStorage.setItem('s_signatures_' + currentSession,'{}');
-            fbSet(FB_PATH.STUDENTS, {});
-            fbSet(FB_PATH.SIGNATURES + '_' + currentSession, {});
+            // 清除 Firebase
+            if(fbReady && fbDB) {
+                fbDB.doc(FB_PATH.STUDENTS).delete().catch(()=>{});
+                fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).delete().catch(()=>{});
+                fbDB.doc('signin_data/students').delete().catch(()=>{});
+                fbDB.collection('signin_data').doc('students').delete().catch(()=>{});
+            }
+            // 直接 reload
             location.reload();
         }
         function showDeleteGroupModal() {
