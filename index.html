@@ -199,7 +199,7 @@
                     <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
                     <button onclick="loadVol0411()" style="padding:10px 20px;background:#ff9800;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">👤 水患自主志工</button>
-                    <button onclick="showDeleteGroupModal()" style="padding:10px 20px;background:#cc0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除群組</button>
+                    <button onclick="clearAllStudentsNow()" style="padding:10px 20px;background:#cc0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除群組</button>
                     <button onclick="showSelectDeleteModal()" style="padding:10px 20px;background:#1976d2;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">✓ 選擇刪除</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                     <button onclick="deleteStudentByName()" style="padding:10px 20px;background:#ff0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除學員</button>
@@ -988,6 +988,16 @@
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             renderAll();
             alert('已刪除 ' + name);
+        }
+        function clearAllStudentsNow() {
+            if(!confirm('確定要刪除全部學員嗎？')) return;
+            students = [];
+            signatures = {};
+            localStorage.setItem('s_students','[]');
+            localStorage.setItem('s_signatures_' + currentSession,'{}');
+            fbSet(FB_PATH.STUDENTS, {});
+            fbSet(FB_PATH.SIGNATURES + '_' + currentSession, {});
+            location.reload();
         }
         function showDeleteGroupModal() {
             document.getElementById('deleteGroupModal').classList.add('active');
