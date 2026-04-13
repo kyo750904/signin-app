@@ -461,7 +461,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.50 (115.4.13) - 最終版</p>
+        <p>版本：v0.51 (115.4.13) - 按鈕刪除後消失</p>
     </footer>
 
     <script>
@@ -1059,6 +1059,8 @@
             // 直接關閉 modal
             document.getElementById('deleteGroupModal').classList.remove('active');
             
+            let btnRemoved = 0;
+            
             // 示範10人組
             if(document.getElementById('delGroup1').checked) {
                 students = students.filter(s => !['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉'].includes(s.name));
@@ -1102,6 +1104,11 @@
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
+            
+            // 如果刪除了群組，就隱藏對應的按鈕
+            if(btnRemoved > 0) {
+                document.getElementById('groupButtons').style.display = 'none';
+            }
             
             // 立即重新渲染畫面
             document.getElementById('manageList').innerHTML = '';
