@@ -200,6 +200,7 @@
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
                     <button onclick="loadVol0411()" style="padding:10px 20px;background:#ff9800;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">👤 水患自主志工</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
+                    <button onclick="deleteStudentByName()" style="padding:10px 20px;background:#ff0000;color:white;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 刪除學員</button>
                 </div>
             </div>
             <div class="card">
@@ -416,7 +417,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.37 (115.4.13) - 移除0411學員，改為水患自主志工</p>
+        <p>版本：v0.39 (115.4.13) - 新增刪除學員功能</p>
     </footer>
 
     <script>
@@ -929,6 +930,20 @@
             localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             renderAll();
+        }
+        function deleteStudentByName() {
+            let name = prompt('請輸入要刪除的學員姓名：');
+            if(!name) return;
+            let found = students.find(s => s.name === name);
+            if(!found) { alert('找不到此學員'); return; }
+            if(!confirm('確定要刪除「' + name + '」嗎？')) return;
+            students = students.filter(s => s.name !== name);
+            delete signatures[found.id];
+            localStorage.setItem('s_students',JSON.stringify(students));
+            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
+            renderAll();
+            alert('已刪除 ' + name);
         }
         function clearAllStudents() {
             if(!confirm('確定清除所有學員？')) return;
