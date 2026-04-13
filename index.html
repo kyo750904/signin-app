@@ -982,18 +982,18 @@
             const newVols = [
                 {n:'吳明崇',r:'水患自主志工'},{n:'黃碧雲',r:'水患自主志工'},{n:'李國銘',r:'水患自主志工'},{n:'蔡念淑',r:'水患自主志工'},{n:'黃淑卿',r:'水患自主志工'},{n:'王金河',r:'水患自主志工'},{n:'黃思苑',r:'水患自主志工'},{n:'林桂美',r:'水患自主志工'},{n:'陳政義',r:'水患自主志工'},{n:'楊芷柔',r:'水患自主志工'},{n:'施育文',r:'水患自主志工'},{n:'施鑑洲',r:'水患自主志工'},{n:'陸鎮平',r:'水患自主志工'},{n:'盧鳯嬌',r:'水患自主志工'},{n:'陳嘉莉',r:'水患自主志工'},{n:'周詠𩓙',r:'水患自主志工'},{n:'鍾春鳯',r:'水患自主志工'},{n:'張建俊',r:'水患自主志工'},{n:'黃志鏘',r:'水患自主志工'},{n:'陳玉齢',r:'水患自主志工'}
             ];
-            let added = 0;
-            newVols.forEach(d => {
-                if(!volunteers.some(v => v.name === d.n)) {
-                    let newVol = {id:Date.now()+added, name:d.n, role:d.r, checked:true};
-                    volunteers.push(newVol);
-                    added++;
-                }
+            // 強制新增，不檢查重複
+            newVols.forEach((d, i) => {
+                // 先移除已存在的同名志工
+                volunteers = volunteers.filter(v => v.name !== d.n);
+                // 再新增
+                let newVol = {id:Date.now()+i, name:d.n, role:d.r, checked:true};
+                volunteers.push(newVol);
             });
             fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
             localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
             renderAll();
-            alert('已載入 ' + added + ' 位水患自主志工');
+            alert('已載入 ' + newVols.length + ' 位水患自主志工');
         }
 
         // Volunteer
