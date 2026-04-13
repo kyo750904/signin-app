@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>樂齡學習中心 AI 簽到系統?v=48</title>
+    <title>樂齡學習中心 AI 簽到系統</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -194,6 +194,11 @@
                     <button onclick="addStudent()" class="btn">➕ 新增</button>
                 </div>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button onclick="loadDemo(10)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 10人</button>
+                    <button onclick="loadDemo(20)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 20人</button>
+                    <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
+                    <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
+                    <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                 </div>
             </div>
             <div class="card">
@@ -267,17 +272,6 @@
                 <button onclick="deleteSession()" id="deleteSessionBtn" class="btn" style="width:100%;padding:10px;background:#cc0000;color:white;display:none;">🗑️ 刪除目前場次</button>
             </div>
             
-            <!-- 簽到標題 -->
-            <div class="card" style="background:#ffffff;border:2px solid #1565c0;">
-                <h3 style="margin:0 0 12px;color:#1565c0;">📋 簽到標題</h3>
-                <select id="signinTitle" class="input" style="font-size:26px;font-weight:bold;" onchange="saveSigninTitle()">
-                    <option value="1">1. 花蓮市樂齡學習中心 課程簽到表</option>
-                    <option value="2">2. 花蓮縣樂齡學習數位示範體驗場域 課程簽到表</option>
-                    <option value="3">3. 花蓮縣民生長照據點 長輩簽到表</option>
-                    <option value="4">4. 花蓮縣民生長照據點 志工簽到表</option>
-                </select>
-            </div>
-            
             <div class="card">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                     <div><label style="font-size: 30px;color:#666;">📅 日期</label><input type="date" id="courseDate" class="input"></div>
@@ -327,19 +321,21 @@
                 <div class="card" style="background:#ffffff;border:2px solid #000000;">
                     <h3 style="margin: 0 0 12px;color:#e65100;">📝 空白簽到（臨時學員）</h3>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
-                        <input id="blankName" placeholder="輸入姓名後按Enter新增" class="input" style="flex:1;min-width:150px;font-size:24px;" onkeypress="if(event.key==='Enter') addBlankCard()">
-                        <button onclick="addBlankCard()" class="btn" style="background:#000000;font-size:24px;">➕ 新增卡片</button>
+                        <input id="blankName" placeholder="姓名" class="input" style="flex:1;min-width:150px;">
+                        <input type="date" id="blankDate" class="input" style="width:auto;">
+                        <input type="time" id="blankTime" class="input" style="width:auto;">
+                        <button onclick="addBlankSignin()" class="btn" style="background:#000000;">➕ 新增</button>
                     </div>
                     <div style="display:flex;gap:8px;">
-                        <button onclick="clearAllBlankCards()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除全部</button>
+                        <button onclick="clearAllBlank()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除全部</button>
                     </div>
                 </div>
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-                        <h3 style="margin:0;color:#e65100;">📋 空白簽到卡片</h3>
-                        <span id="blankCount">共 0 格</span>
+                        <h3 style="margin:0;color:#e65100;">📋 空白簽到名單</h3>
+                        <span id="blankCount">共 0 人</span>
                     </div>
-                    <div id="blankCardGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;"></div>
+                    <div id="blankList"></div>
                 </div>
             </div>
         </div>
@@ -414,54 +410,12 @@
         </div>
     </div>
 
-    <!-- 刪除群組 Modal -->
-    <div id="deleteGroupModal" class="modal">
-        <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:600px;max-height:80vh;overflow-y:auto;">
-            <h3 style="text-align:center;margin:0 0 16px;">🗑️ 刪除群組</h3>
-            <p style="color:#c62828;text-align:center;font-size:22px;">⚠️ 刪除後無法恢復，請謹慎操作！</p>
-            <div style="margin-bottom:16px;">
-                <label style="display:block;padding:12px;border:2px solid #ddd;border-radius:8px;margin-bottom:8px;cursor:pointer;">
-                    <input type="checkbox" id="delGroup1"> 📦 示範10人組（王美華、陳素雲、林水木...等10人）
-                </label>
-                <label style="display:block;padding:12px;border:2px solid #ddd;border-radius:8px;margin-bottom:8px;cursor:pointer;">
-                    <input type="checkbox" id="delGroup2"> 📦 示範20人組（孫小萍、周志明...等10人）
-                </label>
-                <label style="display:block;padding:12px;border:2px solid #ddd;border-radius:8px;margin-bottom:8px;cursor:pointer;">
-                    <input type="checkbox" id="delGroup3"> 📦 示範30人組（李美珠、劉文雄...等10人）
-                </label>
-                <label style="display:block;padding:12px;border:2px solid #ff9800;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#fff3e0;">
-                    <input type="checkbox" id="delGroup4"> 👤 水患自主志工（吳明崇、黃碧雲...等20人）
-                </label>
-                <label style="display:block;padding:12px;border:2px solid #c62828;border-radius:8px;margin-bottom:8px;cursor:pointer;background:#ffebee;">
-                    <input type="checkbox" id="delGroup5"> ⚠️ 全部學員（危險！刪除所有學員）
-                </label>
-            </div>
-            <div style="display:flex;gap:8px;justify-content:center;">
-                <button onclick="closeDeleteGroupModal()" style="padding:12px 24px;background:#9e9e9e;color:white;border:none;border-radius:8px;font-size:24px;">取消</button>
-                <button onclick="confirmDeleteGroup()" style="padding:12px 24px;background:#c62828;color:white;border:none;border-radius:8px;font-size:24px;">🗑️ 刪除</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 選擇性刪除 Modal -->
-    <div id="selectDeleteModal" class="modal">
-        <div style="background:white;border-radius:16px;padding:24px;width:95%;max-width:600px;max-height:80vh;overflow-y:auto;">
-            <h3 style="text-align:center;margin:0 0 16px;">🗑️ 選擇要刪除的學員</h3>
-            <p style="color:#666;font-size:20px;text-align:center;">目前共有 <span id="totalStudents">0</span> 位學員</p>
-            <div id="studentCheckboxes" style="margin:16px 0;max-height:50vh;overflow-y:auto;"></div>
-            <div style="display:flex;gap:8px;justify-content:center;">
-                <button onclick="closeSelectDeleteModal()" style="padding:12px 24px;background:#9e9e9e;color:white;border:none;border-radius:8px;font-size:24px;">取消</button>
-                <button onclick="confirmDeleteSelected()" style="padding:12px 24px;background:#c62828;color:white;border:none;border-radius:8px;font-size:24px;">🗑️ 刪除</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Footer -->
     <footer style="text-align:center;padding:20px;color:#666;font-size: 30px;">
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.56 (115.4.13) - 加入空白卡片渲染函式</p>
+        <p>版本：v0.34 (115.4.10) - 關閉學員志工名單自動同步，保留簽到同步</p>
     </footer>
 
     <script>
@@ -875,7 +829,6 @@
                 document.getElementById('signin-blank-content').style.display = 'block';
                 document.getElementById('signin-tab-blank').style.background = '#000000';
                 document.getElementById('signin-tab-blank').style.color = '#ffffff';
-                renderBlankCardGrid();
             }
         }
         
@@ -904,7 +857,7 @@
                 html += '<div style="font-size:22px;color:'+borderColor+';font-weight:bold;margin-bottom:8px;">'+statusText+'</div>';
                 html += '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">';
                 html += '<button onclick="toggleVolunteerLeave('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+(leave?'#ff9800':'#f5f5f5')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(leave?'✓':'請')+'假</button>';
-                html += '<button onclick="toggleSign('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+btnColor+';color:white;border:none;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(sig?'✓':'簽到')+'</button>';
+                html += '<button onclick="openSig('+p.id+',\''+p.name+'\')" style="flex:1;min-width:60px;padding:8px 4px;background:'+btnColor+';color:white;border:none;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">簽到</button>';
                 html += '</div></div>';
             });
             html += '</div>';
@@ -976,146 +929,6 @@
             fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
             renderAll();
         }
-        function deleteStudentByName() {
-            let name = prompt('請輸入要刪除的學員姓名：');
-            if(!name) return;
-            let found = students.find(s => s.name === name);
-            if(!found) { alert('找不到此學員'); return; }
-            if(!confirm('確定要刪除「' + name + '」嗎？')) return;
-            students = students.filter(s => s.name !== name);
-            delete signatures[found.id];
-            localStorage.setItem('s_students',JSON.stringify(students));
-            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
-            renderAll();
-            alert('已刪除 ' + name);
-        }
-        function clearAllStudentsNow() {
-            if(!confirm('確定要刪除全部學員嗎？')) return;
-            // 清除本地
-            students = [];
-            signatures = {};
-            localStorage.setItem('s_students','[]');
-            localStorage.setItem('s_signatures_' + currentSession,'{}');
-            // 清除 Firebase
-            if(fbReady && fbDB) {
-                fbDB.doc(FB_PATH.STUDENTS).delete().catch(()=>{});
-                fbDB.doc(FB_PATH.SIGNATURES + '_' + currentSession).delete().catch(()=>{});
-                fbDB.doc('signin_data/students').delete().catch(()=>{});
-                fbDB.collection('signin_data').doc('students').delete().catch(()=>{});
-            }
-            // 直接 reload
-            location.reload();
-        }
-        function showDeleteGroupModal() {
-            document.getElementById('deleteGroupModal').classList.add('active');
-            document.getElementById('delGroup1').checked = false;
-            document.getElementById('delGroup2').checked = false;
-            document.getElementById('delGroup3').checked = false;
-            document.getElementById('delGroup4').checked = false;
-            document.getElementById('delGroup5').checked = false;
-        }
-        function closeDeleteGroupModal() {
-            document.getElementById('deleteGroupModal').classList.remove('active');
-        }
-        function showSelectDeleteModal() {
-            document.getElementById('totalStudents').textContent = students.length;
-            let html = '';
-            students.forEach(s => {
-                html += '<label style="display:block;padding:10px;border:1px solid #ddd;border-radius:8px;margin-bottom:6px;cursor:pointer;">';
-                html += '<input type="checkbox" class="studentDelCheck" value="'+s.id+'" style="width:24px;height:24px;margin-right:10px;">';
-                html += s.name + '（' + s.gender + '）';
-                html += '</label>';
-            });
-            if(students.length === 0) {
-                html = '<p style="text-align:center;color:#999;">目前沒有學員</p>';
-            }
-            document.getElementById('studentCheckboxes').innerHTML = html;
-            document.getElementById('selectDeleteModal').classList.add('active');
-        }
-        function closeSelectDeleteModal() {
-            document.getElementById('selectDeleteModal').classList.remove('active');
-        }
-        function confirmDeleteSelected() {
-            let checkboxes = document.querySelectorAll('.studentDelCheck:checked');
-            if(checkboxes.length === 0) {
-                alert('請先勾選要刪除的學員');
-                return;
-            }
-            if(!confirm('確定要刪除選取的 ' + checkboxes.length + ' 位學員嗎？')) return;
-            let idsToDelete = Array.from(checkboxes).map(cb => cb.value);
-            let before = students.length;
-            students = students.filter(s => !idsToDelete.includes(String(s.id)));
-            idsToDelete.forEach(id => delete signatures[id]);
-            let deleted = before - students.length;
-            localStorage.setItem('s_students',JSON.stringify(students));
-            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
-            fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
-            closeSelectDeleteModal();
-            renderAll();
-            alert('已刪除 ' + deleted + ' 位學員');
-        }
-        function confirmDeleteGroup() {
-            // 直接關閉 modal
-            document.getElementById('deleteGroupModal').classList.remove('active');
-            
-            // 示範10人組
-            if(document.getElementById('delGroup1').checked) {
-                students = students.filter(s => !['王美華','陳素雲','林水木','黃金土','李牡丹','張慶祥','劉美玲','羅大文','吳月娥','鄭清泉'].includes(s.name));
-            }
-            
-            // 示範20人組
-            if(document.getElementById('delGroup2').checked) {
-                students = students.filter(s => !['孫小萍','周志明','錢麗華','吳建國','鄭秀英','王文成','林月嬌','黃志偉','張秀美','陳建中'].includes(s.name));
-            }
-            
-            // 示範30人組
-            if(document.getElementById('delGroup3').checked) {
-                students = students.filter(s => !['李美珠','劉文雄','黃春蘭','許光明','吳彩雲','鄭國樑','王素芬','陳志豪','林怡君','張家銘'].includes(s.name));
-            }
-            
-            // 水患自主志工
-            if(document.getElementById('delGroup4').checked) {
-                students = students.filter(s => !['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'].includes(s.name));
-                volunteers = volunteers.filter(v => !['吳明崇','黃碧雲','李國銘','蔡念淑','黃淑卿','王金河','黃思苑','林桂美','陳政義','楊芷柔','施育文','施鑑洲','陸鎮平','盧鳯嬌','陳嘉莉','周詠𩓙','鍾春鳯','張建俊','黃志鏘','陳玉齢'].includes(v.name));
-                localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-                fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
-            }
-            
-            // 全部學員
-            if(document.getElementById('delGroup5').checked) {
-                students = [];
-            }
-            
-            // 重建 signatures
-            let remainingIds = students.map(s => s.id);
-            let newSigs = {};
-            Object.keys(signatures).forEach(id => {
-                if(remainingIds.includes(id)) {
-                    newSigs[id] = signatures[id];
-                }
-            });
-            signatures = newSigs;
-            
-            // 立即儲存並渲染
-            localStorage.setItem('s_students',JSON.stringify(students));
-            localStorage.setItem('s_signatures_' + currentSession,JSON.stringify(signatures));
-            fbSet(FB_PATH.STUDENTS, students.reduce((acc, st) => ({ ...acc, [st.id]: st }), {}));
-            fbSet(FB_PATH.SIGNATURES + '_' + currentSession, signatures);
-            
-            // 直接隱藏整個群組按鈕區塊
-            let btn = document.getElementById('groupButtons');
-            if(btn) btn.style.display = 'none';
-            
-            // 立即重新渲染畫面
-            document.getElementById('manageList').innerHTML = '';
-            renderManageList();
-            renderStudentList();
-            updateStats();
-            
-            alert('已刪除群組！');
-        }
         function clearAllStudents() {
             if(!confirm('確定清除所有學員？')) return;
             students = [];
@@ -1160,26 +973,6 @@
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位學員');
-        }
-        
-        // 新增學員名單（115.4.11）
-        // 水患自主志工
-        function loadVol0411() {
-            const newVols = [
-                {n:'吳明崇',r:'水患自主志工'},{n:'黃碧雲',r:'水患自主志工'},{n:'李國銘',r:'水患自主志工'},{n:'蔡念淑',r:'水患自主志工'},{n:'黃淑卿',r:'水患自主志工'},{n:'王金河',r:'水患自主志工'},{n:'黃思苑',r:'水患自主志工'},{n:'林桂美',r:'水患自主志工'},{n:'陳政義',r:'水患自主志工'},{n:'楊芷柔',r:'水患自主志工'},{n:'施育文',r:'水患自主志工'},{n:'施鑑洲',r:'水患自主志工'},{n:'陸鎮平',r:'水患自主志工'},{n:'盧鳯嬌',r:'水患自主志工'},{n:'陳嘉莉',r:'水患自主志工'},{n:'周詠𩓙',r:'水患自主志工'},{n:'鍾春鳯',r:'水患自主志工'},{n:'張建俊',r:'水患自主志工'},{n:'黃志鏘',r:'水患自主志工'},{n:'陳玉齢',r:'水患自主志工'}
-            ];
-            // 強制新增，不檢查重複
-            newVols.forEach((d, i) => {
-                // 先移除已存在的同名志工
-                volunteers = volunteers.filter(v => v.name !== d.n);
-                // 再新增
-                let newVol = {id:Date.now()+i, name:d.n, role:d.r, checked:true};
-                volunteers.push(newVol);
-            });
-            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
-            localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
-            renderAll();
-            alert('已載入 ' + newVols.length + ' 位水患自主志工');
         }
 
         // Volunteer
@@ -1372,7 +1165,7 @@
                 html += '<div style="font-size:22px;color:'+borderColor+';font-weight:bold;margin-bottom:8px;">'+statusText+'</div>';
                 html += '<div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap;">';
                 html += '<button onclick="toggleLeave('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+(leave?'#ff9800':'#f5f5f5')+';color:'+(leave?'white':'#000000')+';border:2px solid #ff9800;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(leave?'✓':'請')+'假</button>';
-                html += '<button onclick="toggleSign('+p.id+')" style="flex:1;min-width:60px;padding:8px 4px;background:'+btnColor+';color:white;border:none;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">'+(sig?'✓':'簽到')+'</button>';
+                html += '<button onclick="openSig('+p.id+',\''+p.name+'\')" style="flex:1;min-width:60px;padding:8px 4px;background:'+btnColor+';color:white;border:none;border-radius:6px;cursor:pointer;font-size:22px;font-weight:bold;">簽到</button>';
                 html += '</div></div>';
             });
             html += '</div>';
@@ -1606,56 +1399,6 @@
             } catch(e) {
                 alert('儲存簽名時發生錯誤: ' + e.message);
             }
-        }
-
-        // 空白簽到卡片
-        let blankCards = JSON.parse(localStorage.getItem('s_blankCards_' + currentSession) || '[]');
-        function addBlankCard() {
-            let name = document.getElementById('blankName').value.trim();
-            if(!name) { alert('請輸入姓名'); return; }
-            let time = document.getElementById('blankTime').value || new Date().toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit'});
-            let date = document.getElementById('blankDate').value || new Date().toISOString().slice(0,10);
-            blankCards.push({name, time, date, id: Date.now()});
-            localStorage.setItem('s_blankCards_' + currentSession, JSON.stringify(blankCards));
-            document.getElementById('blankName').value = '';
-            renderBlankCardGrid();
-            syncBlankCardsToFirebase();
-        }
-        function deleteBlankCard(id) {
-            blankCards = blankCards.filter(b => b.id !== id);
-            localStorage.setItem('s_blankCards_' + currentSession, JSON.stringify(blankCards));
-            renderBlankCardGrid();
-            syncBlankCardsToFirebase();
-        }
-        function clearAllBlankCards() {
-            if(!confirm('確定清除全部空白簽到？')) return;
-            blankCards = [];
-            localStorage.setItem('s_blankCards_' + currentSession, '[]');
-            renderBlankCardGrid();
-            syncBlankCardsToFirebase();
-        }
-        function renderBlankCardGrid() {
-            document.getElementById('blankCount').textContent = '共 ' + blankCards.length + ' 格';
-            let html = '';
-            for(let i = 0; i < 30; i++) {
-                let card = blankCards[i];
-                if(card) {
-                    html += '<div style="background:#e8f5e9;border:3px solid #4caf50;border-radius:12px;padding:16px;text-align:center;">';
-                    html += '<div style="font-size:28px;font-weight:bold;margin-bottom:8px;">'+card.name+'</div>';
-                    html += '<div style="font-size:20px;color:#666;margin-bottom:8px;">'+card.time+'</div>';
-                    html += '<button onclick="deleteBlankCard('+card.id+')" style="padding:8px 16px;background:#ffcccc;color:#c62828;border:none;border-radius:6px;cursor:pointer;font-size:24px;">🗑️ 刪除</button>';
-                    html += '</div>';
-                } else {
-                    html += '<div style="background:#f5f5f5;border:3px dashed #999;border-radius:12px;padding:16px;text-align:center;opacity:0.5;">';
-                    html += '<div style="font-size:24px;color:#999;">第 '+(i+1)+' 格（空白）</div>';
-                    html += '</div>';
-                }
-            }
-            document.getElementById('blankCardGrid').innerHTML = html;
-        }
-        function syncBlankCardsToFirebase() {
-            if(!fbReady || !fbDB) return;
-            fbSet(FB_PATH.BLANK_SIGNINS + '_' + currentSession, {list: blankCards});
         }
 
         // Blank Sign In
