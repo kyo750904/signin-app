@@ -199,6 +199,7 @@
                     <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
                     <button onclick="loadStudents0411()" style="padding:10px 20px;background:#4caf50;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(0411)</button>
+                    <button onclick="loadVol0411()" style="padding:10px 20px;background:#ff9800;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">👤 水患自主志工</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                 </div>
             </div>
@@ -416,7 +417,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.35 (115.4.11) - 新增0411學員名單20人</p>
+        <p>版本：v0.36 (115.4.13) - 新增水患自主志工20人</p>
     </footer>
 
     <script>
@@ -993,6 +994,25 @@
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位學員');
+        }
+        
+        // 水患自主志工
+        function loadVol0411() {
+            const newVols = [
+                {n:'吳明崇',r:'水患自主志工'},{n:'黃碧雲',r:'水患自主志工'},{n:'李國銘',r:'水患自主志工'},{n:'蔡念淑',r:'水患自主志工'},{n:'黃淑卿',r:'水患自主志工'},{n:'王金河',r:'水患自主志工'},{n:'黃思苑',r:'水患自主志工'},{n:'林桂美',r:'水患自主志工'},{n:'陳政義',r:'水患自主志工'},{n:'楊芷柔',r:'水患自主志工'},{n:'施育文',r:'水患自主志工'},{n:'施鑑洲',r:'水患自主志工'},{n:'陸鎮平',r:'水患自主志工'},{n:'盧鳯嬌',r:'水患自主志工'},{n:'陳嘉莉',r:'水患自主志工'},{n:'周詠𩓙',r:'水患自主志工'},{n:'鍾春鳯',r:'水患自主志工'},{n:'張建俊',r:'水患自主志工'},{n:'黃志鏘',r:'水患自主志工'},{n:'陳玉齢',r:'水患自主志工'}
+            ];
+            let added = 0;
+            newVols.forEach(d => {
+                if(!volunteers.some(v => v.name === d.n)) {
+                    let newVol = {id:Date.now()+added, name:d.n, role:d.r, checked:true};
+                    volunteers.push(newVol);
+                    added++;
+                }
+            });
+            fbSet(FB_PATH.VOLUNTEERS, volunteers.reduce((acc, v) => ({ ...acc, [v.id]: v }), {}));
+            localStorage.setItem('s_volunteers',JSON.stringify(volunteers));
+            renderAll();
+            alert('已載入 ' + added + ' 位水患自主志工');
         }
 
         // Volunteer
