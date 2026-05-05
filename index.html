@@ -197,6 +197,7 @@
                     <button onclick="loadDemo(10)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 10人</button>
                     <button onclick="loadDemo(20)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 20人</button>
                     <button onclick="loadStudents2026()" style="padding:10px 20px;background:#e65100;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">📋 20人(2026)</button>
+                    <button onclick="loadStudentsLeDigitalMay()" style="padding:10px 20px;background:#1565c0;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;color:white;">🎓 樂齡數位5月</button>
                     <button onclick="loadDemo(30)" style="padding:10px 20px;background:#ffffff;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">📦 30人</button>
                     <button onclick="clearAllStudents()" style="padding:10px 20px;background:#ffcccc;border:2px solid #000000;border-radius:8px;cursor:pointer;font-size:25px;font-weight:bold;">🗑️ 清除</button>
                 </div>
@@ -415,7 +416,7 @@
         <p>© Hen好玩工作室 2026</p>
         <p>花蓮市三民街7號</p>
         <p>開發人員：李國銘 | 電話：03-8328647</p>
-        <p>版本：v0.34 (115.4.10) - 關閉學員志工名單自動同步，保留簽到同步</p>
+        <p>版本：v0.35 (114.5.5) - 新增樂齡數位5月學員名單23人</p>
     </footer>
 
     <script>
@@ -973,6 +974,25 @@
             localStorage.setItem('s_students',JSON.stringify(students));
             renderAll();
             alert('已載入 ' + added + ' 位學員');
+        }
+        
+        // 樂齡數位5月 學員名單
+        function loadStudentsLeDigitalMay() {
+            const newStudents = [
+                {n:'張茂賢',g:'男'},{n:'張春慧',g:'女'},{n:'許淑珍',g:'女'},{n:'高瑞嬌',g:'女'},{n:'李孝倩',g:'女'},{n:'許惠玲',g:'女'},{n:'林清勳',g:'男'},{n:'許國強',g:'男'},{n:'陳雪珠',g:'女'},{n:'周志芬',g:'男'},{n:'白榮章',g:'男'},{n:'林曼萍',g:'女'},{n:'陳暉琳',g:'女'},{n:'任榕鳴',g:'女'},{n:'楊鳳玉',g:'女'},{n:'黃寶怡',g:'女'},{n:'任繼中',g:'女'},{n:'林桂美',g:'女'},{n:'黃志鏘',g:'男'},{n:'陳玉齡',g:'女'},{n:'黃譯慧',g:'女'},{n:'蔡美華',g:'女'},{n:'陳南湘',g:'女'}
+            ];
+            let added = 0;
+            newStudents.forEach(d => {
+                if(!students.some(s => s.name === d.n)) {
+                    let newStudent = {id:Date.now()+added, name:d.n, gender:d.g, checked:true};
+                    students.push(newStudent);
+                    added++;
+                }
+            });
+            fbSet(FB_PATH.STUDENTS, students.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}));
+            localStorage.setItem('s_students',JSON.stringify(students));
+            renderAll();
+            alert('已載入 ' + added + ' 位學員（樂齡數位5月）');
         }
 
         // Volunteer
